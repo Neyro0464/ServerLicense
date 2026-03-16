@@ -14,6 +14,11 @@
             "version": 2,
             "applySql": "CREATE TABLE users (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL); INSERT INTO users (username, password_hash) VALUES ('admin', '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918')",
             "revertSql": "DROP TABLE users"
+        },
+        {
+            "version": 3,
+            "applySql": "CREATE TABLE logs (id SERIAL PRIMARY KEY, username TEXT NOT NULL, action TEXT NOT NULL, details TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+            "revertSql": "DROP TABLE logs"
         }
     ]
 }

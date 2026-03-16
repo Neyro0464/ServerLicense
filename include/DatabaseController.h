@@ -1,7 +1,6 @@
 #ifndef DATABASECONTROLLER_H
 #define DATABASECONTROLLER_H
 
-#include <QObject>
 #include <QSqlDatabase>
 #include <QString>
 #include <QVector>
@@ -10,9 +9,16 @@
 struct LicenseRecord;
 class QtDBMigration;
 
-class DatabaseController : public QObject {
-  Q_OBJECT
-
+/**
+ * @brief Singleton-контроллер базы данных.
+ *
+ * Потокобезопасность:
+ *   Вместо хранения единственного QSqlDatabase m_db (опасно для многопоточного
+ *   Drogon), используется паттерн Connection Pool на основе thread-local
+ *   именованных соединений Qt. Метод getConnection() возвращает соединение,
+ *   уникальное для текущего потока.
+ */
+class DatabaseController {
 public:
   static DatabaseController &instance();
 
@@ -22,7 +28,6 @@ public:
                   const QString &dbPass = "postgres",
                   const QString &migrationConfig = "migration.json");
 
-  void setDatabasePath(const QString &path);
   void setMigrationConfig(const QString &configPath);
 
   bool saveLicense(const LicenseRecord &record);
@@ -35,20 +40,27 @@ public:
   bool validateUser(const QString &username, const QString &password) const;
 
 private:
-  explicit DatabaseController(QObject *parent = nullptr);
-  ~DatabaseController() override;
+  explicit DatabaseController();
+  ~DatabaseController();
 
-  bool openDatabase();
+  /**
+   * @brief Возвращает QSqlDatabase для текущего потока.
+   *
+   * Если соединение для этого потока ещё не создано — открывает новое.
+   * Это обеспечивает thread-safety: Qt требует, чтобы каждый поток
+   * использовал своё собственное QSqlDatabase-соединение.
+   */
+  QSqlDatabase getConnection() const;
+
   bool runMigrations();
-  void closeDatabase();
 
-  QSqlDatabase m_db;
   QString m_dbHost;
   int m_dbPort;
   QString m_dbName;
   QString m_dbUser;
   QString m_dbPass;
   QString m_migrationConfig;
+
   std::unique_ptr<QtDBMigration> m_migrator;
 };
 

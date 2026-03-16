@@ -3,23 +3,47 @@
 #include "Migration/QtDBMigration.h"
 
 #include <QCryptographicHash>
-
 #include <QDebug>
 #include <QFile>
+#include <QSqlDatabase>
 #include <QSqlError>
 #include <QSqlQuery>
+#include <QThread>
 
-DatabaseController::DatabaseController(QObject *parent)
-    : QObject(parent), m_dbHost("127.0.0.1"), m_dbPort(5432),
-      m_dbName("licenses_db"), m_dbUser("postgres"), m_dbPass("postgres"),
+// ---------------------------------------------------------------------------
+// Вспомогательная функция: возвращает уникальное имя соединения для текущего
+// потока. Qt требует, что каждый поток работает со своим QSqlDatabase.
+// ---------------------------------------------------------------------------
+static QString connectionNameForCurrentThread() {
+  return QStringLiteral("LicenseDB_") +
+         QString::number(
+             reinterpret_cast<quintptr>(QThread::currentThreadId()));
+}
+
+// ---------------------------------------------------------------------------
+// Singleton
+// ---------------------------------------------------------------------------
+
+DatabaseController::DatabaseController()
+    : m_dbHost("127.0.0.1"), m_dbPort(5432), m_dbName("licenses_db"),
+      m_dbUser("postgres"), m_dbPass("postgres"),
       m_migrationConfig("migration.json") {}
 
-DatabaseController::~DatabaseController() { closeDatabase(); }
+DatabaseController::~DatabaseController() {
+  // Соединения Qt SQL очищаются автоматически при выходе из программы.
+  // Принудительное removeDatabase() здесь небезопасно: деструктор Singleton
+  // может вызваться в момент, когда потоки Drogon ещё активны и держат
+  // локальные QSqlDatabase-объекты — это приводит к segfault.
+}
 
 DatabaseController &DatabaseController::instance() {
   static DatabaseController instance;
   return instance;
 }
+
+// ---------------------------------------------------------------------------
+// Инициализация
+// ---------------------------------------------------------------------------
 
 bool DatabaseController::initialize(const QString &dbHost, int dbPort,
                                     const QString &dbName,
@@ -36,77 +60,102 @@ bool DatabaseController::initialize(const QString &dbHost, int dbPort,
     m_migrationConfig = migrationConfig;
   }
 
-  if (!openDatabase()) {
-    qCritical() << "Failed to open database:" << m_db.lastError().text();
+  // Открываем ПЕРВОЕ соединение (в главном потоке) для выполнения миграций.
+  // Это же соединение будет использоваться главным потоком в обычной работе.
+  QSqlDatabase db = getConnection();
+  if (!db.isOpen()) {
+    qCritical()
+        << "[DatabaseController] Failed to open initial database connection.";
     return false;
   }
 
   if (!runMigrations()) {
-    qCritical() << "Database migrations failed. Check migration.json and logs.";
-    closeDatabase();
+    qCritical() << "[DatabaseController] Database migrations failed.";
     return false;
   }
 
   return true;
-}
-
-void DatabaseController::setDatabasePath(const QString &path) {
-  // Keeping for compatibility or updating dynamically could be done here.
-  Q_UNUSED(path);
 }
 
 void DatabaseController::setMigrationConfig(const QString &configPath) {
   m_migrationConfig = configPath;
-  if (m_db.isOpen()) {
-    runMigrations();
-  }
 }
 
-bool DatabaseController::openDatabase() {
-  m_db = QSqlDatabase::addDatabase("QPSQL");
-  m_db.setHostName(m_dbHost);
-  m_db.setPort(m_dbPort);
-  m_db.setDatabaseName(m_dbName);
-  m_db.setUserName(m_dbUser);
-  m_db.setPassword(m_dbPass);
+// ---------------------------------------------------------------------------
+// Connection Pool (per-thread)
+// ---------------------------------------------------------------------------
 
-  if (!m_db.open()) {
-    qCritical() << "Cannot open database:" << m_db.lastError().text();
-    return false;
+/**
+ * @brief Возвращает QSqlDatabase для ТЕКУЩЕГО потока.
+ *
+ * Qt строго запрещает передавать QSqlDatabase между потоками.
+ * Поэтому мы создаём отдельное именованное соединение для каждого потока
+ * при первом обращении и переиспользуем его в последующих запросах.
+ */
+QSqlDatabase DatabaseController::getConnection() const {
+  const QString name = connectionNameForCurrentThread();
+
+  if (QSqlDatabase::contains(name)) {
+    QSqlDatabase db = QSqlDatabase::database(name, /*open=*/false);
+    if (db.isOpen()) {
+      return db;
+    }
+    // Соединение есть, но закрыто — попытаемся переоткрыть
+    if (!db.open()) {
+      qCritical() << "[DatabaseController] Failed to re-open connection:"
+                  << name << db.lastError().text();
+    }
+    return db;
   }
 
-  return true;
+  // Создаём новое соединение для этого потока
+  QSqlDatabase db = QSqlDatabase::addDatabase("QPSQL", name);
+  db.setHostName(m_dbHost);
+  db.setPort(m_dbPort);
+  db.setDatabaseName(m_dbName);
+  db.setUserName(m_dbUser);
+  db.setPassword(m_dbPass);
+
+  if (!db.open()) {
+    qCritical() << "[DatabaseController] Cannot open DB connection for thread"
+                << name << ":" << db.lastError().text();
+  } else {
+    qDebug() << "[DatabaseController] Opened new DB connection for thread:"
+             << name;
+  }
+
+  return db;
 }
+
+// ---------------------------------------------------------------------------
+// Миграции
+// ---------------------------------------------------------------------------
 
 bool DatabaseController::runMigrations() {
   if (!QFile::exists(m_migrationConfig)) {
-    qCritical() << "Migration config missing:" << m_migrationConfig;
+    qCritical() << "[DatabaseController] Migration config missing:"
+                << m_migrationConfig;
     return false;
   }
 
-  m_migrator = std::make_unique<QtDBMigration>(m_migrationConfig, m_db);
-
-  if (!m_migrator->migrate()) {
-    return false;
-  }
-  return true;
+  // Для миграций используем соединение главного потока
+  QSqlDatabase db = getConnection();
+  m_migrator = std::make_unique<QtDBMigration>(m_migrationConfig, db);
+  return m_migrator->migrate();
 }
 
-void DatabaseController::closeDatabase() {
-  if (m_db.isOpen()) {
-    m_db.close();
-  }
-}
+// ---------------------------------------------------------------------------
+// CRUD
+// ---------------------------------------------------------------------------
 
 bool DatabaseController::saveLicense(const LicenseRecord &record) {
-
-  if (!m_db.isOpen()) {
-    qCritical() << "Attempted to save license to a closed database";
+  QSqlDatabase db = getConnection();
+  if (!db.isOpen()) {
+    qCritical() << "[DatabaseController] saveLicense: DB connection not open.";
     return false;
   }
 
-  QSqlQuery query(m_db);
-
+  QSqlQuery query(db);
   const QString sql =
       "INSERT INTO licenses "
       "(company_name, hardware_id, issue_date, expired_date, signature, "
@@ -114,7 +163,8 @@ bool DatabaseController::saveLicense(const LicenseRecord &record) {
       "VALUES (:company, :hwid, :issue, :expired, :signature, :modules)";
 
   if (!query.prepare(sql)) {
-    qCritical() << "Failed to prepare save query:" << query.lastError().text();
+    qCritical() << "[DatabaseController] Failed to prepare saveLicense:"
+                << query.lastError().text();
     return false;
   }
 
@@ -126,8 +176,8 @@ bool DatabaseController::saveLicense(const LicenseRecord &record) {
   query.bindValue(":modules", record.modules);
 
   if (!query.exec()) {
-    qCritical() << "Exec failed for company:" << record.companyName
-                << "Error:" << query.lastError().text();
+    qCritical() << "[DatabaseController] saveLicense exec failed for"
+                << record.companyName << ":" << query.lastError().text();
     return false;
   }
   return true;
@@ -136,6 +186,7 @@ bool DatabaseController::saveLicense(const LicenseRecord &record) {
 QVector<LicenseRecord> DatabaseController::loadAllLicenses(int limit,
                                                            int offset) const {
   QVector<LicenseRecord> licenses;
+  QSqlDatabase db = getConnection();
 
   QString sql = "SELECT id, company_name, hardware_id, issue_date, "
                 "expired_date, modules, generated_at, signature "
@@ -145,7 +196,12 @@ QVector<LicenseRecord> DatabaseController::loadAllLicenses(int limit,
     sql += QString(" LIMIT %1 OFFSET %2").arg(limit).arg(offset);
   }
 
-  QSqlQuery query(sql, m_db);
+  QSqlQuery query(db);
+  if (!query.exec(sql)) {
+    qCritical() << "[DatabaseController] loadAllLicenses failed:"
+                << query.lastError().text();
+    return licenses;
+  }
 
   while (query.next()) {
     LicenseRecord rec;
@@ -163,17 +219,20 @@ QVector<LicenseRecord> DatabaseController::loadAllLicenses(int limit,
 }
 
 bool DatabaseController::deleteLicense(int id) {
-  if (!m_db.isOpen()) {
-    qCritical() << "Attempted to delete license with a closed database";
+  QSqlDatabase db = getConnection();
+  if (!db.isOpen()) {
+    qCritical()
+        << "[DatabaseController] deleteLicense: DB connection not open.";
     return false;
   }
 
-  QSqlQuery query(m_db);
+  QSqlQuery query(db);
   query.prepare("DELETE FROM licenses WHERE id = :id");
   query.bindValue(":id", id);
 
   if (!query.exec()) {
-    qCritical() << "Failed to delete license:" << query.lastError().text();
+    qCritical() << "[DatabaseController] deleteLicense failed:"
+                << query.lastError().text();
     return false;
   }
   return query.numRowsAffected() > 0;
@@ -182,20 +241,22 @@ bool DatabaseController::deleteLicense(int id) {
 bool DatabaseController::logAction(const QString &username,
                                    const QString &action,
                                    const QString &details) {
-  if (!m_db.isOpen()) {
-    qCritical() << "Attempted to log action to a closed database";
+  QSqlDatabase db = getConnection();
+  if (!db.isOpen()) {
+    qCritical() << "[DatabaseController] logAction: DB connection not open.";
     return false;
   }
 
-  QSqlQuery query(m_db);
-  query.prepare("INSERT INTO logs (username, action, details) VALUES "
-                "(:username, :action, :details)");
+  QSqlQuery query(db);
+  query.prepare("INSERT INTO logs (username, action, details) "
+                "VALUES (:username, :action, :details)");
   query.bindValue(":username", username);
   query.bindValue(":action", action);
   query.bindValue(":details", details);
 
   if (!query.exec()) {
-    qCritical() << "Failed to log action:" << query.lastError().text();
+    qCritical() << "[DatabaseController] logAction failed:"
+                << query.lastError().text();
     return false;
   }
   return true;
@@ -203,17 +264,18 @@ bool DatabaseController::logAction(const QString &username,
 
 bool DatabaseController::validateUser(const QString &username,
                                       const QString &password) const {
-  if (!m_db.isOpen()) {
-    qCritical() << "Attempted to validate user with a closed database";
+  QSqlDatabase db = getConnection();
+  if (!db.isOpen()) {
+    qCritical() << "[DatabaseController] validateUser: DB connection not open.";
     return false;
   }
 
-  QSqlQuery query(m_db);
+  QSqlQuery query(db);
   query.prepare("SELECT password_hash FROM users WHERE username = :username");
   query.bindValue(":username", username);
 
   if (!query.exec()) {
-    qCritical() << "Failed to execute validate user query:"
+    qCritical() << "[DatabaseController] validateUser query failed:"
                 << query.lastError().text();
     return false;
   }
