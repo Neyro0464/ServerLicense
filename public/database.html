@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database | LicenseManager</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="app-container" style="max-width: 1400px;">
+        <!-- Navigation -->
+        <nav class="glass-nav">
+            <div class="nav-logo">
+                <div class="logo-icon"></div>
+                <h2>LicenseManager</h2>
+            </div>
+            <div class="nav-links">
+                <a href="index.html">Generate License</a>
+                <a href="database.html" class="active">Database</a>
+                <a id="logoutBtn" class="logout-btn">Logout</a>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content" style="display: block;">
+            <div class="glass-panel" style="max-width: 100%;">
+                <div class="panel-header" style="text-align: left; margin-bottom: 1rem;">
+                    <h1>Issued Licenses</h1>
+                    <p>View and search all cryptographic signatures issued to your clients.</p>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Company</th>
+                                <th>Hardware ID</th>
+                                <th>Issue Date</th>
+                                <th>Expiration</th>
+                                <th>Modules</th>
+                                <th>Generated At</th>
+                                <th>Signature</th>
+                            </tr>
+                        </thead>
+                        <tbody id="licensesTableBody">
+                            <tr>
+                                <td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                                    <div class="loader inline-loader"
+                                        style="margin: 0 auto; border-top-color: var(--primary);"></div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Error Toast -->
+                <div class="error-toast hidden" id="errorToast">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path
+                            d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z">
+                        </path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                    <span id="errorMessage">Failed to load licenses.</span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="database.js"></script>
+</body>
+
+</html>

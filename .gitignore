@@ -1,0 +1,6 @@
+/.qt
+/build
+/cmake-build-debug
+/cmake-build-release
+/uploads
+CmakeLists.txt.user

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>License Generator | Server</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Navigation -->
+        <nav class="glass-nav">
+            <div class="nav-logo">
+                <div class="logo-icon"></div>
+                <h2>LicenseManager</h2>
+            </div>
+            <div class="nav-links">
+                <a href="index.html" class="active">Generate License</a>
+                <a href="database.html">Database</a>
+                <a id="logoutBtn" class="logout-btn">Logout</a>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="glass-panel">
+                <div class="panel-header">
+                    <h1>Create New License</h1>
+                    <p>Enter the details below to generate a unique cryptographic signature.</p>
+                </div>
+
+                <form id="generateForm" class="generate-form">
+                    <div class="input-group">
+                        <label for="companyName">Company Name</label>
+                        <input type="text" id="companyName" name="companyName" placeholder="Acme Corp" required
+                            autocomplete="off">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="hardwareId">Hardware ID</label>
+                        <input type="text" id="hardwareId" name="hardwareId" placeholder="e.g. A1B2-C3D4-E5F6" required
+                            autocomplete="off">
+                    </div>
+
+                    <div class="input-row">
+                        <div class="input-group half">
+                            <label for="issueDate">Issue Date</label>
+                            <input type="text" id="issueDate" name="issueDate" placeholder="dd.MM.yyyy" required
+                                autocomplete="off">
+                        </div>
+                        <div class="input-group half">
+                            <label for="expiredDate">Expiration Date</label>
+                            <input type="text" id="expiredDate" name="expiredDate" placeholder="dd.MM.yyyy" required
+                                autocomplete="off">
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Enabled Modules</label>
+                        <div class="modules-grid">
+                            <label class="module-checkbox">
+                                <input type="checkbox" name="modules" value="Core">
+                                <span class="checkmark"></span>
+                                Core Engine
+                            </label>
+                            <label class="module-checkbox">
+                                <input type="checkbox" name="modules" value="AI">
+                                <span class="checkmark"></span>
+                                AI Assistant
+                            </label>
+                            <label class="module-checkbox">
+                                <input type="checkbox" name="modules" value="Networking">
+                                <span class="checkmark"></span>
+                                Advanced Networking
+                            </label>
+                            <label class="module-checkbox">
+                                <input type="checkbox" name="modules" value="Analytics">
+                                <span class="checkmark"></span>
+                                Analytics Pro
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary" id="generateBtn">
+                            <span class="btn-text">Generate Signature</span>
+                            <div class="loader hidden" id="btnLoader"></div>
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Result Area -->
+                <div class="result-area hidden" id="resultArea">
+                    <div class="result-header">
+                        <h3>Generated Signature</h3>
+                        <button class="icon-btn" id="copyBtn" title="Copy to clipboard">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="signature-box" id="signatureOutput"></div>
+                    <p class="success-msg">License generated and saved to database successfully!</p>
+                </div>
+
+                <!-- Error Toast -->
+                <div class="error-toast hidden" id="errorToast">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path
+                            d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z">
+                        </path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                    <span id="errorMessage">An error occurred.</span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
