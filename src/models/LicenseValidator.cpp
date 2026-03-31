@@ -1,4 +1,4 @@
-#include "LicenseValidator.h"
+#include "models/LicenseValidator.h"
 #include "LicenseFileJson.h"
 #include "version.h"
 #include <QByteArray>

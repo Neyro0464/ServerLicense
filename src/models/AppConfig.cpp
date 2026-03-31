@@ -1,6 +1,8 @@
-#include "AppConfig.h"
+#include "models/AppConfig.h"
 
+#include <cstdlib>
 #include <QDebug>
+
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -18,7 +20,7 @@ bool AppConfig::load(const QString &filePath) {
   if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
     qCritical() << "[AppConfig] Cannot open config file:" << filePath
                 << "- Using default values.";
-    // Не считаем это фатальной ошибкой, работаем с дефолтами
+    // Not treating this as a fatal error, proceeding with defaults
     m_loaded = false;
     return false;
   }
@@ -76,6 +78,34 @@ bool AppConfig::load(const QString &filePath) {
         root.value(QStringLiteral("documentRoot")).toString(m_documentRoot);
   }
 
+  // --- Logs Retention ---
+  if (root.contains(QStringLiteral("logsRetentionDays"))) {
+    m_logsRetentionDays =
+        root.value(QStringLiteral("logsRetentionDays")).toInt(m_logsRetentionDays);
+  }
+
+  // --- Override with environment variables ---
+  const char* envDbHost = std::getenv("DB_HOST");
+  if (envDbHost) m_dbHost = QString::fromUtf8(envDbHost);
+
+  const char* envDbPort = std::getenv("DB_PORT");
+  if (envDbPort) m_dbPort = QString::fromUtf8(envDbPort).toInt();
+
+  const char* envDbName = std::getenv("DB_NAME");
+  if (envDbName) m_dbName = QString::fromUtf8(envDbName);
+
+  const char* envDbUser = std::getenv("DB_USER");
+  if (envDbUser) m_dbUser = QString::fromUtf8(envDbUser);
+
+  const char* envDbPass = std::getenv("DB_PASSWORD");
+  if (envDbPass) m_dbPassword = QString::fromUtf8(envDbPass);
+
+  const char* envSrvHost = std::getenv("SERVER_HOST");
+  if (envSrvHost) m_serverHost = QString::fromUtf8(envSrvHost);
+
+  const char* envSrvPort = std::getenv("SERVER_PORT");
+  if (envSrvPort) m_serverPort = QString::fromUtf8(envSrvPort).toInt();
+
   m_loaded = true;
   qDebug() << "[AppConfig] Loaded successfully from" << filePath;
   return true;
@@ -93,3 +123,4 @@ QString AppConfig::serverHost() const { return m_serverHost; }
 int AppConfig::serverPort() const { return m_serverPort; }
 QString AppConfig::migrationConfig() const { return m_migrationConfig; }
 QString AppConfig::documentRoot() const { return m_documentRoot; }
+int AppConfig::logsRetentionDays() const { return m_logsRetentionDays; }

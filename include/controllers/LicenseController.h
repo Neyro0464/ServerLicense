@@ -29,5 +29,5 @@ public:
   // Route handler for deleting a license by ID
   void deleteLicense(const HttpRequestPtr &req,
                      std::function<void(const HttpResponsePtr &)> &&callback,
-                     int id);
+                     std::string id);
 };

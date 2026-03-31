@@ -1,6 +1,6 @@
 #ifndef LICENSEVALIDATOR_H
 #define LICENSEVALIDATOR_H
-#include "LicenseData.h"
+#include "models/LicenseData.h"
 #include "LicenseLib_Export.h"
 #include <QString>
 #include <QStringList>

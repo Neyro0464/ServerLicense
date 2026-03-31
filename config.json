@@ -11,5 +11,6 @@
         "port": 8080
     },
     "migrationConfig": "migration.json",
-    "documentRoot": "/home/vladimir/Work/Server(Drogon)/ServerLicense/public"
+    "documentRoot": "/home/vladimir/Work/Server(Drogon)/ServerLicense/public",
+    "logsRetentionDays": 30
 }

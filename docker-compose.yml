@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: license_server_app
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      # These environment variables could also be in a .env file
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=${POSTGRES_DB:-licenses_db}
+      - DB_USER=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+
+  db:
+    image: postgres:15
+    container_name: license_server_db
+    restart: always
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-licenses_db}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-licenses_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backup:
+    image: postgres:15 # To have pg_dump installed
+    container_name: license_server_backup
+    restart: always
+    volumes:
+      - ./scripts:/scripts
+      - ./backups:/backups
+      - ./config.json:/app/config.json # For consistency if needed
+    environment:
+      - DB_HOST=db
+      - DB_NAME=${POSTGRES_DB:-licenses_db}
+      - DB_USER=${POSTGRES_USER:-postgres}
+      - PGPASSWORD=${POSTGRES_PASSWORD:-postgres}
+    entrypoint: ["sh", "-c", "echo 'Backup scheduler started (daily at midnight)'; while true; do /scripts/backup.sh; sleep 86400; done"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db_data:

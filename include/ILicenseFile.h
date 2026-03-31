@@ -5,7 +5,7 @@
 #include <QString>
 #include <QCryptographicHash>
 
-#include "LicenseData.h"
+#include "models/LicenseData.h"
 #include "LicenseLib_Export.h"
 
 

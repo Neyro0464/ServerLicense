@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "AppConfig.h"
+#include "models/AppConfig.h"
 
 #include <QTemporaryFile>
 #include <QTextStream>

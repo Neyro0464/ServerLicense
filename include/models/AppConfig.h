@@ -4,12 +4,12 @@
 #include <QString>
 
 /**
- * @brief Singleton-класс для загрузки конфигурации приложения из JSON-файла.
+ * @brief Singleton class to load application config from a JSON file.
  *
- * Использует Qt-инфраструктуру (QFile, QJsonDocument) для чтения
- * параметров сервера и базы данных из config.json.
+ * Uses Qt (QFile, QJsonDocument) to read
+ * server and db parameters from config.json.
  *
- * Пример использования:
+ * Example usage:
  *   AppConfig::instance().load("config.json");
  *   QString host = AppConfig::instance().dbHost();
  */
@@ -18,9 +18,9 @@ public:
   static AppConfig &instance();
 
   /**
-   * @brief Загружает конфигурацию из указанного файла.
-   * @param filePath Путь к JSON-файлу конфигурации.
-   * @return true, если файл успешно загружен и разобран; false при ошибке.
+   * @brief Loads configuration from the specified file.
+   * @param filePath Path to the JSON config file.
+   * @return true if loaded and parsed successfully; false on error.
    */
   bool load(const QString &filePath);
 
@@ -36,18 +36,23 @@ public:
   int serverPort() const;
 
   /**
-   * @brief Возвращает путь к конфигу миграций.
-   *        Читается из поля "migrationConfig" или используется дефолт.
+   * @brief Returns the path to the migration config.
+   *        Read from "migrationConfig" or uses default.
    */
   QString migrationConfig() const;
 
   /**
-   * @brief Путь к директории со статическими файлами (HTML, JS, CSS).
+   * @brief Path to the directory with static files (HTML, JS, CSS).
    */
   QString documentRoot() const;
 
   /**
-   * @brief Проверяет, была ли конфигурация успешно загружена.
+   * @brief Retention period for logs in days.
+   */
+  int logsRetentionDays() const;
+
+  /**
+   * @brief Checks if the configuration was loaded successfully.
    */
   bool isLoaded() const;
 
@@ -55,7 +60,6 @@ private:
   AppConfig();
   ~AppConfig() = default;
 
-  // Запрещаем копирование
   AppConfig(const AppConfig &) = delete;
   AppConfig &operator=(const AppConfig &) = delete;
 
@@ -75,6 +79,7 @@ private:
   // Migration
   QString m_migrationConfig = QStringLiteral("migration.json");
   QString m_documentRoot = QStringLiteral("../public");
+  int m_logsRetentionDays = 30;
 };
 
 #endif // APPCONFIG_H

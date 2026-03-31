@@ -19,6 +19,9 @@ find_package(GTest QUIET)
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/include/Migration
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/controllers
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/database
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/models
 )
 
 # ============================================================
@@ -67,10 +70,10 @@ if(GTest_FOUND)
     # Контроллеры (AuthController, LicenseController, AuthFilter) тестируются
     # интеграционно через API, а не unit-тестами здесь.
     set(TESTABLE_SRC_FILES
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/AppConfig.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/DatabaseController.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/LicenseData.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/LicenseValidator.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/models/AppConfig.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/database/DatabaseController.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/models/LicenseData.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/models/LicenseValidator.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Migration/AbstractConfig.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Migration/JsonConfig.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Migration/QtDBMigration.cpp
@@ -87,6 +90,9 @@ if(GTest_FOUND)
     target_include_directories(ServerLicenseTests PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/include/Migration
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/controllers
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/database
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/models
     )
 
     target_link_libraries(ServerLicenseTests PRIVATE

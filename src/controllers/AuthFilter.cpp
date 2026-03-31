@@ -1,4 +1,4 @@
-#include "AuthFilter.h"
+#include "controllers/AuthFilter.h"
 
 void AuthFilter::doFilter(const HttpRequestPtr &req, FilterCallback &&fcb,
                           FilterChainCallback &&fccb) {

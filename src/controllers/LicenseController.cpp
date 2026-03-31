@@ -1,11 +1,11 @@
-#include "LicenseController.h"
+#include "controllers/LicenseController.h"
 
 #include <drogon/drogon.h>
 
-#include "DatabaseController.h"
-#include "LicenseData.h"
-#include "LicenseRecord.h"
-#include "LicenseValidator.h"
+#include "database/DatabaseController.h"
+#include "models/LicenseData.h"
+#include "models/LicenseRecord.h"
+#include "models/LicenseValidator.h"
 
 #include <QDate>
 #include <QDateTime>
@@ -76,7 +76,7 @@ void LicenseController::generate(
     // Validate dates before saving
     if (!record.issueDate.isValid() || !record.expiredDate.isValid()) {
       Json::Value error;
-      error["error"] = "Некорректный формат даты";
+      error["error"] = "Invalid date format";
       auto resp = HttpResponse::newHttpJsonResponse(error);
       resp->setStatusCode(k400BadRequest);
       callback(resp);
@@ -84,14 +84,17 @@ void LicenseController::generate(
     }
 
     // Persist to database
-    if (!DatabaseController::instance().saveLicense(record)) {
-      throw std::runtime_error("Ошибка записи в базу данных");
+    std::string employeeId = req->session()->get<std::string>("employee_id");
+    if (!DatabaseController::instance().saveLicense(
+            record, QString::fromStdString(employeeId))) {
+      throw std::runtime_error("Error saving to database");
     }
 
     // Log the successful generation
     std::string username = req->session()->get<std::string>("user_id");
     DatabaseController::instance().logAction(
-        QString::fromStdString(username), "GENERATE_LICENSE",
+        QString::fromStdString(username), QString::fromStdString(employeeId),
+        "GENERATE_LICENSE",
         "Company: " + companyName + ", HardwareID: " + hardwareId);
 
     // Send successful response
@@ -134,14 +137,22 @@ void LicenseController::getLicenses(
     if (offset < 0)
       offset = 0;
 
+    std::string role = req->session()->get<std::string>("role");
+    QString filterEmpId = "";
+    if (role == "junior_manager") {
+      filterEmpId = QString::fromStdString(
+          req->session()->get<std::string>("employee_id"));
+    }
+
     QVector<LicenseRecord> records =
-        DatabaseController::instance().loadAllLicenses(limit, offset);
+        DatabaseController::instance().loadAllLicenses(limit, offset,
+                                                       filterEmpId);
 
     Json::Value responseJson(Json::arrayValue);
 
     for (const auto &record : records) {
       Json::Value item;
-      item["id"] = record.id;
+      item["id"] = record.signature.toStdString(); // Send signature as ID
       item["companyName"] = record.companyName.toStdString();
       item["hardwareId"] = record.hardwareId.toStdString();
       item["issueDate"] = record.issueDate.toString("dd.MM.yyyy").toStdString();
@@ -168,20 +179,24 @@ void LicenseController::getLicenses(
 
 void LicenseController::deleteLicense(
     const HttpRequestPtr &req,
-    std::function<void(const HttpResponsePtr &)> &&callback, int id) {
+    std::function<void(const HttpResponsePtr &)> &&callback, std::string id) {
 
-  std::string username = req->session()->get<std::string>("user_id");
-  if (username != "admin") {
+  std::string role = req->session()->get<std::string>("role");
+  if (role != "admin") {
     auto resp = HttpResponse::newHttpResponse();
     resp->setStatusCode(k403Forbidden);
     callback(resp);
     return;
   }
 
-  if (DatabaseController::instance().deleteLicense(id)) {
-    DatabaseController::instance().logAction(QString::fromStdString(username),
-                                             "DELETE_LICENSE",
-                                             "ID: " + QString::number(id));
+  std::string username = req->session()->get<std::string>("user_id");
+  std::string empId = req->session()->get<std::string>("employee_id");
+
+  if (DatabaseController::instance().deleteLicense(
+          QString::fromStdString(id))) {
+    DatabaseController::instance().logAction(
+        QString::fromStdString(username), QString::fromStdString(empId),
+        "DELETE_LICENSE", "ID: " + QString::fromStdString(id));
     Json::Value ret;
     ret["status"] = "success";
     auto resp = HttpResponse::newHttpJsonResponse(ret);

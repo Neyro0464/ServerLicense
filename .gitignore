@@ -1,6 +1,38 @@
-/.qt
-/build
-/cmake-build-debug
-/cmake-build-release
-/uploads
-CmakeLists.txt.user
+# IDE & Qt
+.qt/
+*.user
+*.user.*
+.vscode/
+.idea/
+
+# Сборка (Build)
+/build/
+/Bin/LicenseServer
+/Bin/ServerLicenseTests
+cmake-build-debug/
+cmake-build-release/
+CMakeCache.txt
+CMakeFiles/
+CMakeLists.txt.user
+CTestTestfile.cmake
+Makefile
+cmake_install.cmake
+
+# Docker & Окружение
+.env
+/docker-compose-override.yml
+
+# Данные и Логи (Data & Logs)
+/logs/
+/backups/
+/uploads/
+!/uploads/.gitkeep
+
+# Временные файлы
+*.log
+*.tmp
+*.bak
+
+# Библиотеки
+# Мы НЕ игнорируем Bin/libLicenseLib.so, так как она нужна для работы,
+# но игнорируем результаты компиляции если они попали в Bin
