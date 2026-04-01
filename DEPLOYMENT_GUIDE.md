@@ -1,34 +1,25 @@
 # Руководство по развертыванию License Server (Docker)
 
-Данное руководство предназначено для системного администратора и описывает процесс установки и запуска сервера лицензий в локальной сети компании на ОС **Ubuntu**.
-
-## 1. Системные требования
-- **ОС**: Ubuntu 22.04 LTS (рекомендуется) / 24.04 LTS.
-- **ПО**: Docker v20.10+ и Docker Compose v2.0+.
-- **Образ контейнера**: `ubuntu:22.04` (используется в `Dockerfile`).
-
-### Установка Docker (если не установлен)
+## 1. Установка Docker (если не установлен)
 
 ```bash
 # Удаление старых версий (если есть)
-sudo apt-get remove -y docker docker-engine docker.io containerd runc 2>/dev/null || true
+sudo apt-get remove docker docker-engine docker.io containerd runc
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl gnupg lsb-release
+sudo mkdir -m 0755 -p /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
 
-# Установка через официальный скрипт Docker Inc.
-curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
-sudo sh /tmp/get-docker.sh
-rm /tmp/get-docker.sh
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  $(lsb_release -cs) stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-# Добавление текущего пользователя в группу docker (без sudo)
-sudo usermod -aG docker $USER
-
-# Включение автозапуска Docker при старте системы
-sudo systemctl enable docker
-sudo systemctl start docker
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 ```
 
-> [!NOTE]
-> После выполнения `usermod` **перезайдите в систему** (или выполните `newgrp docker`),
-> чтобы изменения группы вступили в силу и команды `docker` работали без `sudo`.
 
 ---
 
@@ -140,45 +131,6 @@ FROM ubuntu:22.04
 
 Оба этапа сборки используют **Ubuntu 22.04 LTS**. Если потребуется сменить версию Ubuntu, измените тег в обеих строках одновременно. Переход на Ubuntu 24.04 возможен, но может потребовать проверки совместимости версий пакетов Qt6 и libjsoncpp.
 
-> [!NOTE]
-> В обеих стадиях задана переменная `ENV DEBIAN_FRONTEND=noninteractive`. Она предотвращает зависание `apt-get` на интерактивных диалогах (например, выбор часового пояса при установке `tzdata`).
-
-#### Имя скомпилированного бинарного файла (строка 57)
-
-```dockerfile
-COPY --from=builder /app/build/LicenseServer /app/LicenseServer
-```
-
-> [!IMPORTANT]
-> Имя `LicenseServer` должно совпадать с именем цели сборки, заданной в `CMakeLists.txt`. Если в `CMakeLists.txt` задано другое имя — измените его здесь.
-
-Проверить текущее имя цели:
-```bash
-grep "add_executable" CMakeLists.txt
-```
-
-#### Рабочая директория и путь к `libLicenseLib.so` (строки 51, 70)
-
-```dockerfile
-WORKDIR /app
-ENV LD_LIBRARY_PATH=/app/Bin:$LD_LIBRARY_PATH
-```
-
-Приложение запускается из директории `/app`, а библиотека `libLicenseLib.so` ищется в `/app/Bin`. Если структура папок изменилась — скорректируйте оба значения.
-
-#### Версия libjsoncpp (строка 45)
-
-```dockerfile
-libjsoncpp25
-```
-
-Версия библиотеки (`25`) привязана к конкретной версии Debian. При смене базового образа эта версия может отличаться. Для поиска актуальной версии выполните:
-
-```bash
-apt-cache search libjsoncpp
-```
-
----
 
 ## 4. Запуск приложения
 
@@ -186,8 +138,16 @@ apt-cache search libjsoncpp
 ```bash
 docker compose up -d --build
 ```
-
-После выполнения приложение будет доступно по адресу: `http://localhost:8080` (или IP-адрес сервера в сети).
+После успешного развертывания проверьте логи приложения:
+```bash
+docker compose logs -f app
+```
+В консоли вы увидите логи приложения, в том числе информацию о подключении к базе данных и запуске сервера:
+```bash
+license_server_app | Starting Server. License Lib Version: 1.28
+license_server_app | [AppConfig] Loaded successfully from "config.json"
+license_server_app | [DatabaseController] Opened new DB connection for thread: ...
+```
 
 ---
 
@@ -276,21 +236,7 @@ docker compose logs -f app
 docker compose logs --tail=50 app
 ```
 
-### 9.5 Проверка наличия бэкапов
-
-```bash
-# Список созданных бэкапов (каталог ./backups в директории проекта)
-ls -lh ./backups/
-```
-
-> [!NOTE]
-> Первый бэкап создаётся через 24 часа после запуска контейнера `backup`.
-> Для немедленного ручного запуска используйте:
-> ```bash
-> docker compose exec backup /scripts/backup.sh
-> ```
-
-### 9.6 Проверка логов в случае ошибок
+### 9.5 Проверка логов в случае ошибок
 
 ```bash
 # Все контейнеры сразу
@@ -315,11 +261,7 @@ docker compose logs backup
 
 ```bash
 ip addr show
-# или короче:
-hostname -I
 ```
-
-Ищите адрес вида `192.168.x.x` или `10.x.x.x` — это локальный IP в сети.
 
 ### 10.2 Откройте порт в фаерволе (если ufw включён)
 
@@ -328,7 +270,7 @@ hostname -I
 sudo ufw status
 
 # Разрешить входящие подключения на порт 8080
-sudo ufw allow 8080/tcp
+sudo ufw allow port/tcp
 
 # Проверить результат
 sudo ufw status numbered
@@ -339,15 +281,12 @@ sudo ufw status numbered
 На любом устройстве в той же сети введите в браузере:
 
 ```
-http://<IP-адрес-ВМ>:8080
+http://<IP-адрес-ВМ>:port
 ```
-
-Например: `http://192.168.1.50:8080`
 
 > [!NOTE]
 > Виртуальная машина должна использовать сетевой режим **"Сетевой мост"** (Bridged Adapter),
 > а не NAT. При NAT ВМ недоступна из локальной сети напрямую.
-> Проверьте настройки сети в VirtualBox / VMware / Hyper-V.
 
 > [!TIP]
 > Чтобы IP-адрес ВМ не менялся при перезагрузке, назначьте ей статический IP
@@ -392,80 +331,4 @@ docker compose up -d --build
 > [!CAUTION]
 > **НИКОГДА** не используйте `docker compose down -v` при работе с реальными данными.
 > Флаг `-v` удаляет все тома, включая `db_data` — все данные в БД будут безвозвратно удалены.
-
-### 11.3 Таблица: какие команды безопасны
-
-| Команда | Код обновляется | Данные БД | Безопасно |
-|---------|:-:|:-:|:-:|
-| `docker compose up -d --build` | ✅ | ✅ сохраняются | ✅ |
-| `docker compose up -d --build app` | ✅ | ✅ сохраняются | ✅ |
-| `docker compose down` → `up -d --build` | ✅ | ✅ сохраняются | ✅ |
-| `docker compose down -v` | ✅ | ❌ **УДАЛЯЮТСЯ** | ❌ |
-
----
-
-## 12. Автоматическое развёртывание (CI/CD)
-
-При пуше в репозиторий сервер может автоматически обновляться без ручного копирования файлов.
-
-### 12.1 Вариант А — GitHub Actions
-
-**Принцип**: GitHub Actions подключается по SSH к вашему серверу и выполняет `git pull` + `docker compose up --build`.
-
-#### Шаг 1: Добавьте SSH-ключ на сервер
-
-На локальной машине создайте SSH-ключ для деплоя:
-
-```bash
-ssh-keygen -t ed25519 -C "deploy@licenseserver" -f ~/.ssh/deploy_key -N ""
-```
-
-Скопируйте публичный ключ на сервер:
-
-```bash
-ssh-copy-id -i ~/.ssh/deploy_key.pub user@<IP-сервера>
-```
-
-#### Шаг 2: Добавьте Secrets в GitHub
-
-В репозитории: `Settings → Secrets and variables → Actions → New repository secret`
-
-| Имя секрета | Значение |
-|-------------|----------|
-| `SSH_HOST` | IP-адрес сервера |
-| `SSH_USER` | Имя пользователя на сервере |
-| `SSH_KEY` | Содержимое файла `~/.ssh/deploy_key` (приватный ключ) |
-| `SSH_PORT` | Порт SSH (обычно `22`) |
-| `DEPLOY_PATH` | Путь к проекту на сервере, например `/home/user/ServerLicense` |
-
-#### Шаг 3: Файл workflow уже создан
-
-Файл `.github/workflows/deploy.yml` уже добавлен в репозиторий.
-При каждом пуше в ветку `main` он автоматически подключается к серверу и обновляет приложение.
-
----
-
-### 12.2 Вариант Б — GitLab CI
-
-Если репозиторий на GitLab, добавьте переменные в `Settings → CI/CD → Variables`:
-
-| Переменная | Значение |
-|------------|----------|
-| `SSH_PRIVATE_KEY` | Приватный SSH-ключ |
-| `SERVER_HOST` | IP-адрес сервера |
-| `SERVER_USER` | Пользователь |
-| `DEPLOY_PATH` | Путь к проекту |
-
-Файл `.gitlab-ci.yml` уже создан в репозитории.
-
----
-
-### 12.3 Проверка автодеплоя
-
-После настройки:
-1. Внесите любое изменение в код
-2. Сделайте `git push origin main`
-3. Откройте вкладку **Actions** (GitHub) или **Pipelines** (GitLab)
-4. Убедитесь, что pipeline завершился успешно ✅
-5. Проверьте, что изменения применились на сервере
 
