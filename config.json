@@ -1,6 +1,6 @@
 {
     "database": {
-        "host": "127.0.0.1",
+        "host": "db",
         "port": 5432,
         "name": "licenses_db",
         "user": "postgres",
@@ -11,6 +11,6 @@
         "port": 8080
     },
     "migrationConfig": "migration.json",
-    "documentRoot": "/home/vladimir/Work/Server(Drogon)/ServerLicense/public",
+    "documentRoot": "public",
     "logsRetentionDays": 30
 }

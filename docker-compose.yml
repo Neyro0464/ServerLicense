@@ -6,9 +6,8 @@ services:
     container_name: license_server_app
     restart: always
     ports:
-      - "8080:8080"
+      - "${SERVER_PORT:-8080}:8080"
     environment:
-      # These environment variables could also be in a .env file
       - DB_HOST=db
       - DB_PORT=5432
       - DB_NAME=${POSTGRES_DB:-licenses_db}
@@ -38,19 +37,29 @@ services:
       retries: 5
 
   backup:
-    image: postgres:15 # To have pg_dump installed
+    image: postgres:15
     container_name: license_server_backup
     restart: always
     volumes:
-      - ./scripts:/scripts
       - ./backups:/backups
-      - ./config.json:/app/config.json # For consistency if needed
     environment:
-      - DB_HOST=db
-      - DB_NAME=${POSTGRES_DB:-licenses_db}
-      - DB_USER=${POSTGRES_USER:-postgres}
+      - PGHOST=db
+      - PGDATABASE=${POSTGRES_DB:-licenses_db}
+      - PGUSER=${POSTGRES_USER:-postgres}
       - PGPASSWORD=${POSTGRES_PASSWORD:-postgres}
-    entrypoint: ["sh", "-c", "echo 'Backup scheduler started (daily at midnight)'; while true; do /scripts/backup.sh; sleep 86400; done"]
+    # Выполняем дамп напрямую без зависимости от внешнего bash-скрипта
+    entrypoint: >
+      sh -c "
+      echo 'Backup scheduler started (daily at midnight)';
+      while true; do
+        FILENAME=/backups/backup_$$(date +%Y%m%d_%H%M%S).sql;
+        echo \"Starting backup to $$FILENAME\";
+        pg_dump -h db -U ${POSTGRES_USER:-postgres} ${POSTGRES_DB:-licenses_db} > $$FILENAME;
+        echo \"Backup completed\";
+        # Удаляем бекапы старше 7 дней
+        find /backups -type f -name '*.sql' -mtime +7 -delete;
+        sleep 86400;
+      done"
     depends_on:
       db:
         condition: service_healthy

@@ -1,5 +1,8 @@
 # Stage 1: Build
-FROM debian:bookworm AS builder
+FROM ubuntu:22.04 AS builder
+
+# Avoid interactive prompts during apt-get (e.g. tzdata)
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
@@ -35,7 +38,10 @@ RUN mkdir build && cd build \
     && make -j$(nproc)
 
 # Stage 2: Runtime
-FROM debian:bookworm-slim
+FROM ubuntu:22.04
+
+# Avoid interactive prompts during apt-get (e.g. tzdata)
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
@@ -58,10 +64,10 @@ COPY --from=builder /app/Bin /app/Bin
 COPY --from=builder /app/public /app/public
 COPY --from=builder /app/migration.json /app/migration.json
 COPY --from=builder /app/config.json /app/config.json
-COPY --from=builder /app/scripts/backup.sh /app/scripts/backup.sh
+COPY --from=builder /app/scripts/backup.sh /scripts/backup.sh
 
 # Ensure the backup script is executable
-RUN chmod +x /app/scripts/backup.sh
+RUN chmod +x /scripts/backup.sh
 
 # Expose server port
 EXPOSE 8080
@@ -70,4 +76,4 @@ EXPOSE 8080
 ENV LD_LIBRARY_PATH=/app/Bin:$LD_LIBRARY_PATH
 
 # Run the server
-CMD ["./LicenseServer"]
+CMD ["/app/LicenseServer"]
