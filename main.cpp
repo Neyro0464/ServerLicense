@@ -64,14 +64,21 @@ int main() {
       [docRoot](const HttpRequestPtr &req,
                 std::function<void(const HttpResponsePtr &)> &&callback,
                 const std::string &path) {
-        // Не перехватываем API-маршруты — контроллер сам вернёт 404
+        // Не перехватываем API-маршруты
         if (path.rfind("api", 0) == 0) {
           auto res = HttpResponse::newHttpResponse();
           res->setStatusCode(k404NotFound);
           callback(res);
           return;
         }
-        // Для всех остальных GET-запросов отдаём главную страницу SPA
+        // Если в пути есть расширение файла (.css, .js, .png, …) —
+        // отдаём статический файл из documentRoot, не SPA-заглушку
+        if (path.find('.') != std::string::npos) {
+          auto res = HttpResponse::newFileResponse(docRoot + "/" + path);
+          callback(res);
+          return;
+        }
+        // Для SPA-маршрутов без расширения отдаём index.html
         auto res = HttpResponse::newFileResponse(docRoot + "/index.html");
         callback(res);
       },
