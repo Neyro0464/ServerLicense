@@ -51,6 +51,7 @@ RUN apt-get update && apt-get install -y \
     libjsoncpp25 \
     libuuid1 \
     libssl3 \
+    libsqlite3-0 \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 

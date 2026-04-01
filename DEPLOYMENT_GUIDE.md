@@ -8,28 +8,28 @@
 - **Образ контейнера**: `ubuntu:22.04` (используется в `Dockerfile`).
 
 ### Установка Docker (если не установлен)
+
 ```bash
 # Удаление старых версий (если есть)
-sudo apt-get remove docker docker-engine docker.io containerd runc
+sudo apt-get remove -y docker docker-engine docker.io containerd runc 2>/dev/null || true
 
-# Установка зависимостей
-sudo apt-get update
-sudo apt-get install -y ca-certificates curl gnupg lsb-release
+# Установка через официальный скрипт Docker Inc.
+curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
+sudo sh /tmp/get-docker.sh
+rm /tmp/get-docker.sh
 
-# Добавление официального GPG ключа Docker
-sudo mkdir -m 0755 -p /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-sudo chmod a+r /etc/apt/keyrings/docker.gpg
+# Добавление текущего пользователя в группу docker (без sudo)
+sudo usermod -aG docker $USER
 
-# Настройка репозитория
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-  $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-# Установка Docker
-sudo apt-get update
-sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+# Включение автозапуска Docker при старте системы
+sudo systemctl enable docker
+sudo systemctl start docker
 ```
+
+> [!NOTE]
+> После выполнения `usermod` **перезайдите в систему** (или выполните `newgrp docker`),
+> чтобы изменения группы вступили в силу и команды `docker` работали без `sudo`.
+
 ---
 
 ## 2. Подготовка к запуску
