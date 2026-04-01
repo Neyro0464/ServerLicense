@@ -1,0 +1,35 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches:
+      - main   # Запускается при пуше в ветку main
+
+jobs:
+  deploy:
+    name: SSH Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            set -e
+
+            echo "=== Переходим в директорию проекта ==="
+            cd ${{ secrets.DEPLOY_PATH }}
+
+            echo "=== Получаем обновления из репозитория ==="
+            git pull origin main
+
+            echo "=== Пересобираем и перезапускаем контейнер приложения ==="
+            # Пересобираем только app — база данных (db_data volume) не трогается
+            docker compose up -d --build app
+
+            echo "=== Деплой завершён успешно ==="
+            docker compose ps
