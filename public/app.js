@@ -27,6 +27,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    fetch('/api/version').then(async res => {
+        if (res.ok) {
+            const v = await res.json();
+            const el = document.getElementById('appVersionInfo');
+            if (el) el.textContent = `Версия сервера: ${v.serverVersion} | Версия библиотеки: ${v.libVersion}`;
+        }
+    });
+
     if (logoutBtn) {
         logoutBtn.addEventListener('click', () => {
             fetch('/api/logout', { method: 'POST' }).then(() => {
@@ -58,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch('/api/companies');
             if (res.ok) {
                 const companies = await res.json();
-                companySelect.innerHTML = '<option value="" disabled selected>Select a company...</option>';
+                companySelect.innerHTML = '<option value="" disabled selected>Выберите компанию...</option>';
                 companies.forEach(c => {
                     const opt = document.createElement('option');
                     opt.value = c.companyName;
@@ -113,7 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const btn = document.getElementById('addCompanySubmitBtn');
             btn.disabled = true;
-            btn.textContent = 'Adding...';
+            btn.textContent = 'Добавление...';
 
             const response = await fetch('/api/companies', {
                 method: 'POST',
@@ -152,9 +160,11 @@ document.addEventListener('DOMContentLoaded', () => {
         } finally {
             const btn = document.getElementById('addCompanySubmitBtn');
             btn.disabled = false;
-            btn.textContent = 'Add Company';
+            btn.textContent = 'Добавить компанию';
         }
     });
+
+    let currentLicenseData = null;
 
 
     generateForm.addEventListener('submit', async (e) => {
@@ -190,11 +200,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const expiredDateObj = parseDate(data.expiredDate);
 
             if (!issueDateObj || !expiredDateObj) {
-                throw new Error("Invalid date format. Use dd.MM.yyyy");
+                throw new Error("Неверный формат даты. Используйте дд.мм.гггг");
             }
 
             if (issueDateObj >= expiredDateObj) {
-                throw new Error("Issue Date must be strictly before the Expiration Date.");
+                throw new Error("Дата выдачи должна быть раньше даты окончания.");
             }
             const response = await fetch('/api/generate', {
                 method: 'POST',
@@ -211,11 +221,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     window.location.href = '/login.html';
                     return;
                 }
-                throw new Error(result.error || 'Server error occurred during generation.');
+                throw new Error(result.error || 'Во время генерации произошла ошибка сервера.');
             }
 
             // Success
             signatureOutput.textContent = result.signature;
+            currentLicenseData = {
+                licenseDesc: {
+                    company: data.companyName,
+                    expiredDate: data.expiredDate,
+                    issueDate: data.issueDate,
+                    modules: data.modules,
+                    signature: result.signature
+                }
+            };
             resultArea.classList.remove('hidden');
 
         } catch (error) {
@@ -234,7 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const text = signatureOutput.textContent;
         navigator.clipboard.writeText(text).then(() => {
             const originalTitle = copyBtn.getAttribute('title');
-            copyBtn.setAttribute('title', 'Copied!');
+            copyBtn.setAttribute('title', 'Скопировано!');
             copyBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
 
             setTimeout(() => {
@@ -243,4 +262,18 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 2000);
         });
     });
+
+    const downloadJsonBtn = document.getElementById('downloadJsonBtn');
+    if (downloadJsonBtn) {
+        downloadJsonBtn.addEventListener('click', () => {
+            if (!currentLicenseData) return;
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(currentLicenseData, null, 4));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "license_" + currentLicenseData.licenseDesc.company.replace(/[^a-z0-9]/gi, '_').toLowerCase() + ".json");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        });
+    }
 });

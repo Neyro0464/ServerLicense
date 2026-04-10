@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     qt6-base-dev \
     libqt6sql6-psql \
+    libgtest-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Drogon from source

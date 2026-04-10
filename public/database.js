@@ -1,79 +1,6 @@
 // ════════════════════════════════════════════════════════════════════════════
-//  SHARED CONTACTS EDITOR HELPERS (used by database.js and app.js)
+//  database.js core
 // ════════════════════════════════════════════════════════════════════════════
-
-/**
- * Add one empty type+value row to a contacts editor container.
- * @param {string} containerId - the id of the .contacts-editor div
- * @param {string} type - prefill the "type" field (optional)
- * @param {string} value - prefill the "value" field (optional)
- */
-window.addContactRow = function(containerId, type = '', value = '') {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-
-    const row = document.createElement('div');
-    row.className = 'contact-row';
-    row.innerHTML = `
-        <input type="text" class="contact-type" placeholder="Contact type (e.g. Phone)" value="${escAttr(type)}" autocomplete="off">
-        <input type="text" class="contact-value" placeholder="Value (e.g. +7 999 123-45-67)" value="${escAttr(value)}" autocomplete="off">
-        <button type="button" class="contact-remove-btn" title="Remove" onclick="this.closest('.contact-row').remove()">✕</button>
-    `;
-    container.appendChild(row);
-};
-
-/**
- * Populate a contacts editor from an existing contacts JSON string or object.
- * Handles both array format [{type,value}] and legacy object format {key:value}.
- * Clears the container first, then adds one empty row if no contacts exist.
- */
-window.populateContactsEditor = function(containerId, contactsRaw) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    container.innerHTML = '';
-
-    let entries = [];
-    try {
-        const parsed = typeof contactsRaw === 'string' ? JSON.parse(contactsRaw) : contactsRaw;
-        if (Array.isArray(parsed)) {
-            entries = parsed; // [{type, value}]
-        } else if (parsed && typeof parsed === 'object') {
-            entries = Object.entries(parsed).map(([k, v]) => ({ type: k, value: v }));
-        }
-    } catch { /* ignore */ }
-
-    if (entries.length === 0) {
-        window.addContactRow(containerId);
-    } else {
-        entries.forEach(e => window.addContactRow(containerId, e.type || '', e.value || ''));
-    }
-};
-
-/**
- * Read all rows from the contacts editor and return a JSON string.
- * Skips rows where both fields are empty.
- */
-window.readContactsEditor = function(containerId) {
-    const container = document.getElementById(containerId);
-    if (!container) return '[]';
-    const rows = container.querySelectorAll('.contact-row');
-    const result = [];
-    rows.forEach(row => {
-        const type = row.querySelector('.contact-type')?.value.trim() || '';
-        const value = row.querySelector('.contact-value')?.value.trim() || '';
-        if (type || value) result.push({ type, value });
-    });
-    return JSON.stringify(result);
-};
-
-/** Escape a string for use in an HTML attribute value */
-function escAttr(str) {
-    return String(str || '')
-        .replace(/&/g, '&amp;')
-        .replace(/"/g, '&quot;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-}
 
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -126,6 +53,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!res.ok) { window.location.href = '/login.html'; return; }
             const data = await res.json();
             currentUserRole = data.role;
+
+            fetch('/api/version').then(async resVersion => {
+                if (resVersion.ok) {
+                    const v = await resVersion.json();
+                    const el = document.getElementById('appVersionInfo');
+                    if (el) el.textContent = `Версия сервера: ${v.serverVersion} | Версия библиотеки: ${v.libVersion}`;
+                }
+            });
 
             // Show/hide tabs
             if (isDirector()) {
@@ -231,61 +166,126 @@ document.addEventListener('DOMContentLoaded', () => {
     // ════════════════════════════════════════════════════════════════════════════
     //  LICENSES
     // ════════════════════════════════════════════════════════════════════════════
+    let allLicensesData = [];
+    let currentSort = { key: 'generatedAt', dir: 'desc' };
+
+    function renderLicenses() {
+        const tbody = document.getElementById('licensesTableBody');
+        tbody.innerHTML = '';
+
+        const fCompany = document.getElementById('filterCompany')?.value.toLowerCase() || '';
+        const fIssueDate = document.getElementById('filterIssueDate')?.value.toLowerCase() || '';
+        const fExpiredDate = document.getElementById('filterExpiredDate')?.value.toLowerCase() || '';
+        const fGeneratedAt = document.getElementById('filterGeneratedAt')?.value.toLowerCase() || '';
+
+        let filtered = allLicensesData.filter(lic => {
+            if (fCompany && (!lic.companyName || !lic.companyName.toLowerCase().includes(fCompany))) return false;
+            if (fIssueDate && (!lic.issueDate || !lic.issueDate.toLowerCase().includes(fIssueDate))) return false;
+            if (fExpiredDate && (!lic.expiredDate || !lic.expiredDate.toLowerCase().includes(fExpiredDate))) return false;
+            if (fGeneratedAt && (!lic.generatedAt || !lic.generatedAt.toLowerCase().includes(fGeneratedAt))) return false;
+            return true;
+        });
+
+        filtered.sort((a, b) => {
+            let valA = a[currentSort.key] || '';
+            let valB = b[currentSort.key] || '';
+            if (valA < valB) return currentSort.dir === 'asc' ? -1 : 1;
+            if (valA > valB) return currentSort.dir === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text-muted);">Лицензии не найдены.</td></tr>';
+            return;
+        }
+
+        filtered.forEach(lic => {
+            const tr = document.createElement('tr');
+            const modulesBadges = lic.modules
+                ? lic.modules.split(',').map(m => `<span class="status-badge">${m.trim()}</span>`).join('')
+                : '<span style="color:var(--text-muted)">Нет</span>';
+
+            const actionsHtml = `<td><div style="display:flex;gap:0.5rem;align-items:center;">
+                <button class="action-btn" onclick="window.__downloadLicense('${lic.id}')" style="background:var(--primary);color:#fff;border-color:transparent;" title="Скачать JSON">💾</button>
+                ${isManager() ? `<button class="action-btn action-btn--delete" onclick="window.__deleteLicense('${lic.id}')">🗑️</button>` : ''}
+            </div></td>`;
+
+            tr.innerHTML = `
+                <td style="font-weight:500;color:#c4b5fd;">#…${lic.id.substring(0,6)}</td>
+                <td style="font-weight:500;color:#fff;">${esc(lic.companyName)}</td>
+                <td><span style="font-family:monospace;color:#cbd5e1;">${esc(lic.hardwareId)}</span></td>
+                <td>${esc(lic.issueDate)}</td>
+                <td>${esc(lic.expiredDate)}</td>
+                <td><div style="display:flex;gap:4px;flex-wrap:wrap;">${modulesBadges}</div></td>
+                <td style="color:var(--text-muted);font-size:0.85rem;">${esc(lic.generatedAt)}</td>
+                <td><div style="font-family:monospace;font-size:0.8rem;color:var(--success);word-break:break-all;max-width:300px;">${esc(lic.signature)}</div></td>
+                ${actionsHtml}
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    document.querySelectorAll('.filter-input').forEach(input => {
+        input.addEventListener('input', renderLicenses);
+    });
+    document.querySelectorAll('.sort-icon').forEach(icon => {
+        icon.addEventListener('click', (e) => {
+            const key = e.target.dataset.sort;
+            if (currentSort.key === key) {
+                currentSort.dir = currentSort.dir === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.key = key;
+                currentSort.dir = 'asc';
+            }
+            renderLicenses();
+        });
+    });
+
     async function loadLicenses() {
         const tbody = document.getElementById('licensesTableBody');
         tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:2rem;"><div class="loader inline-loader" style="margin:0 auto;border-top-color:var(--primary);"></div></td></tr>';
 
         try {
             const res = await fetch('/api/licenses');
-            if (!res.ok) { if (res.status === 401) { window.location.href = '/login.html'; return; } throw new Error('Failed to fetch licenses'); }
-            const data = await res.json();
+            if (!res.ok) { if (res.status === 401) { window.location.href = '/login.html'; return; } throw new Error('Не удалось получить лицензии'); }
+            allLicensesData = await res.json();
             licensesLoaded = true;
-            tbody.innerHTML = '';
-
-            if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text-muted);">No licenses found.</td></tr>';
-                return;
-            }
-
-            data.forEach(lic => {
-                const tr = document.createElement('tr');
-                const modulesBadges = lic.modules
-                    ? lic.modules.split(',').map(m => `<span class="status-badge">${m.trim()}</span>`).join('')
-                    : '<span style="color:var(--text-muted)">None</span>';
-
-                const actionsHtml = isManager()
-                    ? `<td><div style="display:flex;gap:0.5rem;">
-                        <button class="action-btn action-btn--delete" onclick="window.__deleteLicense(${lic.id})">🗑️ Delete</button>
-                    </div></td>`
-                    : '<td class="db-col--manager-only hidden"></td>';
-
-                tr.innerHTML = `
-                    <td style="font-weight:500;color:#c4b5fd;">#${lic.id}</td>
-                    <td style="font-weight:500;color:#fff;">${esc(lic.companyName)}</td>
-                    <td><span style="font-family:monospace;color:#cbd5e1;">${esc(lic.hardwareId)}</span></td>
-                    <td>${esc(lic.issueDate)}</td>
-                    <td>${esc(lic.expiredDate)}</td>
-                    <td><div style="display:flex;gap:4px;flex-wrap:wrap;">${modulesBadges}</div></td>
-                    <td style="color:var(--text-muted);font-size:0.85rem;">${esc(lic.generatedAt)}</td>
-                    <td><div style="font-family:monospace;font-size:0.8rem;color:var(--success);word-break:break-all;max-width:300px;">${esc(lic.signature)}</div></td>
-                    ${actionsHtml}
-                `;
-                tbody.appendChild(tr);
-            });
+            renderLicenses();
 
             window.__deleteLicense = (id) => {
-                showConfirmDelete(`Delete license #${id}? This action cannot be undone.`, async () => {
+                showConfirmDelete(`Удалить лицензию? Это действие нельзя будет отменить.`, async () => {
                     try {
                         const r = await fetch(`/api/licenses/${id}`, { method: 'DELETE' });
-                        if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Failed to delete'); }
+                        if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Ошибка удаления'); }
                         licensesLoaded = false;
-                        loadLicenses();
+                        await loadLicenses();
                     } catch(e) { showError(e.message); }
                 });
             };
 
+            window.__downloadLicense = (id) => {
+                const lic = allLicensesData.find(l => String(l.id) === String(id));
+                if (!lic) return;
+                const dataObj = {
+                    licenseDesc: {
+                        company: lic.companyName,
+                        expiredDate: lic.expiredDate,
+                        issueDate: lic.issueDate,
+                        modules: lic.modules ? lic.modules.split(',').map(m => m.trim()) : [],
+                        signature: lic.signature
+                    }
+                };
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataObj, null, 4));
+                const anchor = document.createElement('a');
+                anchor.setAttribute("href", dataStr);
+                anchor.setAttribute("download", "license_" + lic.companyName.replace(/[^a-z0-9а-яё]/gi, '_').toLowerCase() + ".json");
+                document.body.appendChild(anchor);
+                anchor.click();
+                anchor.remove();
+            };
+
         } catch(err) {
-            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--error);">Error loading licenses.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--error);">Ошибка при загрузке лицензий.</td></tr>';
             showError(err.message);
         }
     }
@@ -299,13 +299,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const res = await fetch('/api/companies');
-            if (!res.ok) throw new Error('Failed to fetch companies');
+            if (!res.ok) throw new Error('Не удалось получить компании');
             const data = await res.json();
             companiesLoaded = true;
             tbody.innerHTML = '';
 
             if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--text-muted);">No companies found.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--text-muted);">Компании не найдены.</td></tr>';
                 return;
             }
 
@@ -326,8 +326,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const actionsHtml = isManager()
                     ? `<td><div style="display:flex;gap:0.5rem;">
-                        <button class="action-btn action-btn--edit" data-action="edit-company" data-key="${esc(c.companyName)}">✏️ Edit</button>
-                        <button class="action-btn action-btn--delete" data-action="delete-company" data-key="${esc(c.companyName)}">🗑️ Delete</button>
+                        <button class="action-btn action-btn--edit" data-action="edit-company" data-key="${esc(c.companyName)}">✏️ Редактировать</button>
+                        <button class="action-btn action-btn--delete" data-action="delete-company" data-key="${esc(c.companyName)}">🗑️ Удалить</button>
                     </div></td>`
                     : '<td class="db-col--manager-only hidden"></td>';
 
@@ -360,10 +360,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 if (action === 'delete-company') {
-                    showConfirmDelete(`Delete company "${key}"? Associated licenses may also be affected.`, async () => {
+                    showConfirmDelete(`Удалить компанию "${key}"? Связанные лицензии также могут быть удалены.`, async () => {
                         try {
                             const r = await fetch(`/api/companies/${encodeURIComponent(key)}`, { method: 'DELETE' });
-                            if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Failed to delete'); }
+                            if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Ошибка удаления'); }
                             companiesLoaded = false;
                             loadCompanies();
                         } catch(e2) { showError(e2.message); }
@@ -372,7 +372,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }, /* persistent listener */); // no { once: true } — must work for all rows
 
         } catch(err) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--error);">Error loading companies.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--error);">Ошибка при загрузке компаний.</td></tr>';
             showError(err.message);
         }
     }
@@ -386,7 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         hideFormError('editCompanyError');
         const btn = document.getElementById('editCompanySubmitBtn');
-        btn.disabled = true; btn.textContent = 'Saving...';
+        btn.disabled = true; btn.textContent = 'Сохранение...';
 
         const originalName = document.getElementById('editCompanyOriginalName').value;
         const data = {
@@ -401,14 +401,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
-            if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Failed to update'); }
+            if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Ошибка обновления'); }
             editCompanyModal.classList.add('hidden');
             companiesLoaded = false;
             loadCompanies();
         } catch(err) {
             showFormError('editCompanyErrorMsg', 'editCompanyError', err.message);
         } finally {
-            btn.disabled = false; btn.textContent = 'Save Changes';
+            btn.disabled = false; btn.textContent = 'Сохранить изменения';
         }
     });
 
@@ -428,7 +428,7 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         hideFormError('addDbCompanyError');
         const btn = document.getElementById('addDbCompanySubmitBtn');
-        btn.disabled = true; btn.textContent = 'Adding...';
+        btn.disabled = true; btn.textContent = 'Добавление...';
 
         const data = {
             companyName: document.getElementById('addDbCompanyName').value,
@@ -442,14 +442,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
-            if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Failed to add company'); }
+            if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Ошибка при добавлении компании'); }
             addCompanyDbModal.classList.add('hidden');
             companiesLoaded = false;
             loadCompanies();
         } catch(err) {
             showFormError('addDbCompanyErrorMsg', 'addDbCompanyError', err.message);
         } finally {
-            btn.disabled = false; btn.textContent = 'Add Company';
+            btn.disabled = false; btn.textContent = 'Добавить компанию';
         }
     });
 
@@ -463,15 +463,15 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const res = await fetch('/api/employees');
             if (!res.ok) {
-                if (res.status === 403) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--error);">Access denied.</td></tr>'; return; }
-                throw new Error('Failed to fetch employees');
+                if (res.status === 403) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--error);">Доступ запрещен.</td></tr>'; return; }
+                throw new Error('Не удалось получить сотрудников');
             }
             const data = await res.json();
             employeesLoaded = true;
             tbody.innerHTML = '';
 
             if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text-muted);">No employees found.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text-muted);">Сотрудники не найдены.</td></tr>';
                 return;
             }
 
@@ -487,8 +487,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td>${esc(emp.firstName)}</td>
                     <td style="color:var(--text-muted);">${esc(emp.middleName || '—')}</td>
                     <td><div style="display:flex;gap:0.5rem;">
-                        <button class="action-btn action-btn--edit" data-action="edit-employee" data-key="${esc(emp.employeeId)}">✏️ Edit</button>
-                        <button class="action-btn action-btn--delete" data-action="delete-employee" data-key="${esc(emp.employeeId)}" data-login="${esc(emp.login)}">🗑️ Delete</button>
+                        <button class="action-btn action-btn--edit" data-action="edit-employee" data-key="${esc(emp.employeeId)}">✏️ Редактировать</button>
+                        <button class="action-btn action-btn--delete" data-action="delete-employee" data-key="${esc(emp.employeeId)}" data-login="${esc(emp.login)}">🗑️ Удалить</button>
                     </div></td>
                 `;
                 tbody.appendChild(tr);
@@ -511,17 +511,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.getElementById('editEmpFirstName').value = emp.firstName;
                     document.getElementById('editEmpLastName').value = emp.lastName;
                     document.getElementById('editEmpMiddleName').value = emp.middleName || '';
-                    document.getElementById('editEmployeeTitle').textContent = `Edit Employee: ${emp.login}`;
+                    document.getElementById('editEmployeeTitle').textContent = `Редактировать сотрудника: ${emp.login}`;
                     hideFormError('editEmployeeError');
                     document.getElementById('editEmployeeModal').classList.remove('hidden');
                 }
 
                 if (action === 'delete-employee') {
                     const login = btn.dataset.login;
-                    showConfirmDelete(`Delete employee "${login}" (ID: ${key})? Their account will also be removed.`, async () => {
+                    showConfirmDelete(`Удалить сотрудника "${login}" (ID: ${key})? Его аккаунт также будет удален.`, async () => {
                         try {
                             const r = await fetch(`/api/employees/${encodeURIComponent(key)}`, { method: 'DELETE' });
-                            if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Failed to delete'); }
+                            if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Ошибка удаления'); }
                             employeesLoaded = false;
                             loadEmployees();
                         } catch(e2) { showError(e2.message); }
@@ -530,7 +530,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }, /* persistent listener */); // no { once: true } — must work for all rows
 
         } catch(err) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--error);">Error loading employees.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--error);">Ошибка при загрузке сотрудников.</td></tr>';
             showError(err.message);
         }
     }
@@ -544,8 +544,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('addEmployeeDbBtn').addEventListener('click', () => {
         document.getElementById('editEmployeeId').value = '';
         document.getElementById('editEmployeeForm').reset();
-        document.getElementById('editEmployeeTitle').textContent = 'Add New Employee';
-        document.getElementById('editEmployeeSubmitBtn').textContent = 'Create Employee';
+        document.getElementById('editEmployeeTitle').textContent = 'Добавить нового сотрудника';
+        document.getElementById('editEmployeeSubmitBtn').textContent = 'Создать сотрудника';
         hideFormError('editEmployeeError');
         editEmployeeModal.classList.remove('hidden');
     });
@@ -554,7 +554,7 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         hideFormError('editEmployeeError');
         const btn = document.getElementById('editEmployeeSubmitBtn');
-        btn.disabled = true; btn.textContent = 'Saving...';
+        btn.disabled = true; btn.textContent = 'Сохранение...';
 
         const empId = document.getElementById('editEmployeeId').value;
         const isNew = !empId;
@@ -584,7 +584,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify(data)
                 });
             }
-            if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Failed to save employee'); }
+            if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Ошибка сохранения сотрудника'); }
             editEmployeeModal.classList.add('hidden');
             employeesLoaded = false;
             loadEmployees();
@@ -592,7 +592,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showFormError('editEmployeeErrorMsg', 'editEmployeeError', err.message);
         } finally {
             btn.disabled = false;
-            btn.textContent = empId ? 'Save Employee' : 'Create Employee';
+            btn.textContent = empId ? 'Сохранить сотрудника' : 'Создать сотрудника';
         }
     });
 

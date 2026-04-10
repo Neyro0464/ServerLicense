@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (!response.ok) {
-                throw new Error('Invalid username or password');
+                throw new Error('Неверное имя пользователя или пароль');
             }
 
             window.location.href = '/index.html';

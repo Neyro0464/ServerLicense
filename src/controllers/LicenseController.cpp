@@ -11,6 +11,7 @@
 #include <QDateTime>
 #include <QString>
 #include <QVector>
+#include <QRegularExpression>
 
 using namespace drogon;
 
@@ -42,6 +43,27 @@ void LicenseController::generate(
       Json::Value error;
       error["error"] = "All fields (companyName, hardwareId, issueDate, "
                        "expiredDate) must be non-empty.";
+      auto resp = HttpResponse::newHttpJsonResponse(error);
+      resp->setStatusCode(k400BadRequest);
+      callback(resp);
+      return;
+    }
+
+    QRegularExpression hwRegex("^[A-Za-z0-9\\-]+$");
+    QRegularExpression companyRegex("^[a-zA-Zа-яА-ЯёЁ0-9\\s,.\\-&\"']+$");
+
+    if (!hwRegex.match(hardwareId).hasMatch()) {
+      Json::Value error;
+      error["error"] = "Hardware ID can only contain letters, digits, and dashes.";
+      auto resp = HttpResponse::newHttpJsonResponse(error);
+      resp->setStatusCode(k400BadRequest);
+      callback(resp);
+      return;
+    }
+
+    if (!companyRegex.match(companyName).hasMatch()) {
+      Json::Value error;
+      error["error"] = "Company name contains invalid characters.";
       auto resp = HttpResponse::newHttpJsonResponse(error);
       resp->setStatusCode(k400BadRequest);
       callback(resp);

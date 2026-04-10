@@ -4,7 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>License Generator | Server</title>
+    <title>Генератор лицензий | Сервер</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -16,13 +17,13 @@
         <!-- Navigation -->
         <nav class="glass-nav">
             <div class="nav-logo">
-                <div class="logo-icon"></div>
-                <h2>LicenseManager</h2>
+                <img src="logo.png" alt="Logo" class="logo-image" style="height: 32px; width: 32px; object-fit: contain;">
+                <h2>Менеджер лицензий</h2>
             </div>
             <div class="nav-links">
-                <a href="index.html" class="active">Generate License</a>
-                <a href="database.html">Database</a>
-                <a id="logoutBtn" class="logout-btn">Logout</a>
+                <a href="index.html" class="active">Генерация лицензии</a>
+                <a href="database.html">База данных</a>
+                <a id="logoutBtn" class="logout-btn">Выйти</a>
             </div>
         </nav>
 
@@ -30,70 +31,70 @@
         <main class="main-content">
             <div class="glass-panel">
                 <div class="panel-header">
-                    <h1>Create New License</h1>
-                    <p>Enter the details below to generate a unique cryptographic signature.</p>
+                    <h1>Создать новую лицензию</h1>
+                    <p>Введите данные ниже для генерации уникальной криптографической подписи.</p>
                 </div>
 
                 <form id="generateForm" class="generate-form">
                     <div class="input-group">
-                        <label for="companyName">Company Name</label>
+                        <label for="companyName">Название компании</label>
                         <div style="display: flex; gap: 10px;">
                             <select id="companyName" name="companyName" required style="flex-grow: 1;">
-                                <option value="" disabled selected>Select a company</option>
+                                <option value="" disabled selected>Выберите компанию</option>
                             </select>
                             <button type="button" id="openAddCompanyBtn" class="btn-secondary" style="padding: 0 15px;"
-                                title="Add new company">+</button>
+                                title="Добавить новую компанию">+</button>
                         </div>
                     </div>
 
                     <div class="input-group">
-                        <label for="hardwareId">Hardware ID</label>
-                        <input type="text" id="hardwareId" name="hardwareId" placeholder="e.g. A1B2-C3D4-E5F6" required
+                        <label for="hardwareId">Hardware ID (ID оборудования)</label>
+                        <input type="text" id="hardwareId" name="hardwareId" placeholder="напр. A1B2-C3D4-E5F6" required
                             autocomplete="off">
                     </div>
 
                     <div class="input-row">
                         <div class="input-group half">
-                            <label for="issueDate">Issue Date</label>
-                            <input type="text" id="issueDate" name="issueDate" placeholder="dd.MM.yyyy" required
+                            <label for="issueDate">Дата выдачи</label>
+                            <input type="text" id="issueDate" name="issueDate" placeholder="дд.мм.гггг" required
                                 autocomplete="off">
                         </div>
                         <div class="input-group half">
-                            <label for="expiredDate">Expiration Date</label>
-                            <input type="text" id="expiredDate" name="expiredDate" placeholder="dd.MM.yyyy" required
+                            <label for="expiredDate">Дата окончания</label>
+                            <input type="text" id="expiredDate" name="expiredDate" placeholder="дд.мм.гггг" required
                                 autocomplete="off">
                         </div>
                     </div>
 
                     <div class="input-group">
-                        <label>Enabled Modules</label>
+                        <label>Доступные модули</label>
                         <div class="modules-grid">
                             <label class="module-checkbox">
                                 <input type="checkbox" name="modules" value="Core">
                                 <span class="checkmark"></span>
-                                Core Engine
+                                Базовое ядро (Core Engine)
                             </label>
                             <label class="module-checkbox">
                                 <input type="checkbox" name="modules" value="AI">
                                 <span class="checkmark"></span>
-                                AI Assistant
+                                ИИ ассистент (AI Assistant)
                             </label>
                             <label class="module-checkbox">
                                 <input type="checkbox" name="modules" value="Networking">
                                 <span class="checkmark"></span>
-                                Advanced Networking
+                                Сетевой модуль (Networking)
                             </label>
                             <label class="module-checkbox">
                                 <input type="checkbox" name="modules" value="Analytics">
                                 <span class="checkmark"></span>
-                                Analytics Pro
+                                Аналитика (Analytics Pro)
                             </label>
                         </div>
                     </div>
 
                     <div class="form-actions">
                         <button type="submit" class="btn-primary" id="generateBtn">
-                            <span class="btn-text">Generate Signature</span>
+                            <span class="btn-text">Сгенерировать подпись</span>
                             <div class="loader hidden" id="btnLoader"></div>
                         </button>
                     </div>
@@ -102,18 +103,27 @@
                 <!-- Result Area -->
                 <div class="result-area hidden" id="resultArea">
                     <div class="result-header">
-                        <h3>Generated Signature</h3>
-                        <button class="icon-btn" id="copyBtn" title="Copy to clipboard">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round">
-                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                            </svg>
-                        </button>
+                        <h3>Сгенерированная подпись</h3>
+                        <div>
+                            <button class="icon-btn" id="downloadJsonBtn" title="Скачать JSON" style="margin-right: 5px;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="7 10 12 15 17 10"></polyline>
+                                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                                </svg>
+                            </button>
+                            <button class="icon-btn" id="copyBtn" title="Скопировать в буфер">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                     <div class="signature-box" id="signatureOutput"></div>
-                    <p class="success-msg">License generated and saved to database successfully!</p>
+                    <p class="success-msg">Лицензия успешно сгенерирована и сохранена в базу данных!</p>
                 </div>
 
                 <!-- Error Toast -->
@@ -126,10 +136,14 @@
                         <line x1="12" y1="9" x2="12" y2="13"></line>
                         <line x1="12" y1="17" x2="12.01" y2="17"></line>
                     </svg>
-                    <span id="errorMessage">An error occurred.</span>
+                    <span id="errorMessage">Произошла ошибка.</span>
                 </div>
             </div>
         </main>
+
+        <footer style="text-align: center; color: var(--text-muted); font-size: 0.75rem; padding: 10px;">
+            <span id="appVersionInfo">Версия сервера: Загрузка...</span>
+        </footer>
     </div>
 
     <!-- Add Company Modal -->
@@ -137,34 +151,35 @@
         <div class="modal-content glass-panel" style="max-width: 500px; margin: 10vh auto; position: relative;">
             <div class="modal-header"
                 style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 style="margin: 0; font-size: 1.5rem; color: #f8fafc;">Add New Company</h2>
+                <h2 style="margin: 0; font-size: 1.5rem; color: #f8fafc;">Добавить новую компанию</h2>
                 <span class="close-btn" id="closeCompanyModal"
                     style="cursor: pointer; font-size: 1.5rem; color: #94a3b8;">&times;</span>
             </div>
             <form id="addCompanyForm" class="generate-form">
                 <div id="companyError" class="error-toast hidden" style="margin-top:0; margin-bottom: 15px;">
-                    <span id="companyErrorMessage">Error</span>
+                    <span id="companyErrorMessage">Ошибка</span>
                 </div>
                 <div class="input-group">
-                    <label for="newCompanyName">Company Name</label>
+                    <label for="newCompanyName">Название компании</label>
                     <input type="text" id="newCompanyName" name="companyName" required autocomplete="off">
                 </div>
                 <div class="input-group">
-                    <label for="newCompanyCity">City</label>
-                    <input type="text" id="newCompanyCity" name="city" autocomplete="off" placeholder="(Optional)">
+                    <label for="newCompanyCity">Город</label>
+                    <input type="text" id="newCompanyCity" name="city" autocomplete="off" placeholder="(Необязательно)">
                 </div>
                 <div class="input-group">
-                    <label>Contacts</label>
+                    <label>Контакты</label>
                     <div id="addCompanyContactsEditor" class="contacts-editor"></div>
-                    <button type="button" class="contacts-add-btn" onclick="addContactRow('addCompanyContactsEditor')">+ Add contact method</button>
+                    <button type="button" class="contacts-add-btn" onclick="addContactRow('addCompanyContactsEditor')">+ Добавить контакт</button>
                 </div>
                 <div class="form-actions" style="margin-top: 20px;">
-                    <button type="submit" class="btn-primary" id="addCompanySubmitBtn">Add Company</button>
+                    <button type="submit" class="btn-primary" id="addCompanySubmitBtn">Добавить компанию</button>
                 </div>
             </form>
         </div>
     </div>
 
+    <script src="common.js"></script>
     <script src="app.js"></script>
 </body>
 

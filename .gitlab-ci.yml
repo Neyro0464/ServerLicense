@@ -1,36 +1,71 @@
 stages:
+  - test
+  - build
   - deploy
 
-deploy:
+variables:
+  DOCKER_TLS_CERTDIR: ""
+  # Формируем имя образа для Docker Hub: ваш_логин/имя_проекта
+  DOCKER_IMAGE: $DOCKER_HUB_USER/license-server
+  IMAGE_TAG: $DOCKER_IMAGE:$CI_COMMIT_SHORT_SHA
+  IMAGE_LATEST: $DOCKER_IMAGE:latest
+  IMAGE_BUILDER: $DOCKER_IMAGE:builder-$CI_COMMIT_SHORT_SHA
+
+# ============================================================
+# 1. Сборка и запуск Unit-тестов
+# ============================================================
+run_tests:
+  stage: test
+  image: docker:20.10.16
+  services:
+    - docker:20.10.16-dind
+  script:
+    - docker build --target builder -t $IMAGE_BUILDER .
+    - docker run --rm $IMAGE_BUILDER sh -c "cd /app/build && ./ServerLicenseTests"
+  only:
+    - master
+    - merge_requests
+
+# ============================================================
+# 2. Сборка финального образа и отправка в Docker Hub
+# ============================================================
+build_image:
+  stage: build
+  image: docker:20.10.16
+  services:
+    - docker:20.10.16-dind
+  script:
+    # Авторизуемся в облаке Docker Hub
+    - docker login -u $DOCKER_HUB_USER -p $DOCKER_HUB_PASSWORD
+    - docker build -t $IMAGE_TAG -t $IMAGE_LATEST .
+    # Отправляем образы в облако
+    - docker push $IMAGE_TAG
+    - docker push $IMAGE_LATEST
+  only:
+    - master
+
+# ============================================================
+# 3. Деплой на виртуальную машину
+# ============================================================
+deploy_to_vm:
   stage: deploy
   image: alpine:latest
-
-  # Запускается только при пуше в ветку main
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
-
   before_script:
-    # Устанавливаем SSH-клиент и настраиваем ключ
     - apk add --no-cache openssh-client
     - eval $(ssh-agent -s)
     - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
-    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
-    # Отключаем проверку fingerprint (или можно добавить known_hosts)
-    - echo "StrictHostKeyChecking no" >> ~/.ssh/config
-
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - ssh-keyscan $VM_IP_ADDRESS >> ~/.ssh/known_hosts
   script:
-    - |
-      ssh -p 22 ${SERVER_USER}@${SERVER_HOST} "
-        set -e
-        echo '=== Переходим в директорию проекта ==='
-        cd ${DEPLOY_PATH}
-
-        echo '=== Получаем обновления ==='
-        git pull origin main
-
-        echo '=== Пересобираем контейнер приложения (БД не трогается) ==='
-        docker compose up -d --build app
-
-        echo '=== Статус контейнеров ==='
-        docker compose ps
-      "
+    - ssh $SSH_USER@$VM_IP_ADDRESS "mkdir -p /opt/license_server"
+    - scp ./docker-compose.yml $SSH_USER@$VM_IP_ADDRESS:/opt/license_server/docker-compose.yml
+    - >
+      ssh $SSH_USER@$VM_IP_ADDRESS 
+      "cd /opt/license_server &&
+      echo 'CI_REGISTRY_IMAGE=$IMAGE_LATEST' > .env &&
+      docker login -u $DOCKER_HUB_USER -p $DOCKER_HUB_PASSWORD && 
+      docker compose pull && 
+      docker compose up -d --remove-orphans"
+  only:
+    - master

@@ -1,5 +1,6 @@
 #include "controllers/CompanyController.h"
 #include "database/DatabaseController.h"
+#include <QRegularExpression>
 
 void CompanyController::getCompanies(
     const HttpRequestPtr &req,
@@ -50,6 +51,16 @@ void CompanyController::addCompany(
 
     QString companyName =
         QString::fromStdString((*jsonPtr)["companyName"].asString());
+
+    QRegularExpression companyRegex("^[a-zA-Zа-яА-ЯёЁ0-9\\s,.\\-&\"']+$");
+    if (!companyRegex.match(companyName).hasMatch()) {
+      Json::Value error;
+      error["error"] = "Company name contains invalid characters.";
+      auto resp = HttpResponse::newHttpJsonResponse(error);
+      resp->setStatusCode(k400BadRequest);
+      callback(resp);
+      return;
+    }
 
     QString city = "";
     if (jsonPtr->isMember("city")) {
@@ -130,6 +141,16 @@ void CompanyController::updateCompany(
     QString newName = companyName; // Default to old if not specified, though usually we might update it
     if (jsonPtr->isMember("companyName")) {
       newName = QString::fromStdString((*jsonPtr)["companyName"].asString());
+    }
+
+    QRegularExpression companyRegex("^[a-zA-Zа-яА-ЯёЁ0-9\\s,.\\-&\"']+$");
+    if (!companyRegex.match(newName).hasMatch()) {
+      Json::Value error;
+      error["error"] = "Company name contains invalid characters.";
+      auto resp = HttpResponse::newHttpJsonResponse(error);
+      resp->setStatusCode(k400BadRequest);
+      callback(resp);
+      return;
     }
     
     QString city = "";

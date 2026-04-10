@@ -4,7 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login | Server</title>
+    <title>Вход | Сервер</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -15,27 +16,27 @@
     <div class="login-container">
         <div class="glass-panel login-panel">
             <div class="panel-header text-center">
-                <div class="logo-icon center-icon"></div>
-                <h1>Welcome Back</h1>
-                <p>Sign in to access the License Manager.</p>
+                <img src="logo.png" alt="Logo" class="logo-image" style="height: 48px; width: 48px; object-fit: contain; margin: 0 auto 10px;">
+                <h1>С возвращением</h1>
+                <p>Войдите для доступа к Менеджеру Лицензий.</p>
             </div>
 
             <form id="loginForm" class="generate-form">
                 <div class="input-group">
-                    <label for="username">Username</label>
-                    <input type="text" id="username" name="username" placeholder="Enter username" required
+                    <label for="username">Имя пользователя (Логин)</label>
+                    <input type="text" id="username" name="username" placeholder="Введите логин" required
                         autocomplete="username">
                 </div>
 
                 <div class="input-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" name="password" placeholder="Enter password" required
+                    <label for="password">Пароль</label>
+                    <input type="password" id="password" name="password" placeholder="Введите пароль" required
                         autocomplete="current-password">
                 </div>
 
                 <div class="form-actions" style="margin-top: 2rem;">
                     <button type="submit" class="btn-primary" id="loginBtn">
-                        <span class="btn-text">Sign In</span>
+                        <span class="btn-text">Войти</span>
                         <div class="loader hidden" id="btnLoader"></div>
                     </button>
                 </div>
@@ -49,7 +50,7 @@
                     <line x1="12" y1="9" x2="12" y2="13"></line>
                     <line x1="12" y1="17" x2="12.01" y2="17"></line>
                 </svg>
-                <span id="errorMessage">An error occurred.</span>
+                <span id="errorMessage">Произошла ошибка.</span>
             </div>
         </div>
     </div>

@@ -4,13 +4,14 @@
 #include "models/AppConfig.h"
 #include "database/DatabaseController.h"
 #include "version.h"
-
+#include "ServerVersion.h"
 #include <QDateTime>
 #include <QFile>
 #include <QTextStream>
 
 using namespace drogon;
 
+// CI/CD Test
 void customMessageHandler(QtMsgType type, const QMessageLogContext &context,
                           const QString &msg) {
   QFile file("logs/server.log");
@@ -81,6 +82,19 @@ int main() {
         // Для SPA-маршрутов без расширения отдаём index.html
         auto res = HttpResponse::newFileResponse(docRoot + "/index.html");
         callback(res);
+      },
+      {Get});
+
+  app().registerHandler(
+      "/api/version",
+      [](const HttpRequestPtr &req,
+         std::function<void(const HttpResponsePtr &)> &&callback) {
+        Json::Value ret;
+        QString serverVersion = QString("%1.%2").arg(SERVER_VER_MAJOR).arg(QDate::currentDate().toString("yyyy.MM.dd"));
+        ret["serverVersion"] = serverVersion.toStdString();
+        ret["libVersion"] = std::to_string(VER_MAJOR) + "." + std::to_string(VER_BUILD) + " " + VER_HASH;
+        auto resp = HttpResponse::newHttpJsonResponse(ret);
+        callback(resp);
       },
       {Get});
 

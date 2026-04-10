@@ -1,7 +1,7 @@
 
 services:
   app:
-    build: .
+    image: ${CI_REGISTRY_IMAGE:-license_server_app:latest}
     container_name: license_server_app
     restart: always
     ports:
