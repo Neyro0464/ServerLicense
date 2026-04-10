@@ -199,7 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        filtered.forEach(lic => {
+        filtered.forEach((lic, index) => {
             const tr = document.createElement('tr');
             const modulesBadges = lic.modules
                 ? lic.modules.split(',').map(m => `<span class="status-badge">${m.trim()}</span>`).join('')
@@ -211,7 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div></td>`;
 
             tr.innerHTML = `
-                <td style="font-weight:500;color:#c4b5fd;">#…${lic.id.substring(0,6)}</td>
+                <td style="font-weight:500;color:#c4b5fd;">${index + 1}</td>
                 <td style="font-weight:500;color:#fff;">${esc(lic.companyName)}</td>
                 <td><span style="font-family:monospace;color:#cbd5e1;">${esc(lic.hardwareId)}</span></td>
                 <td>${esc(lic.issueDate)}</td>
@@ -475,12 +475,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            data.forEach(emp => {
+            data.forEach((emp, index) => {
                 const tr = document.createElement('tr');
                 employeeStore.set(emp.employeeId, emp); // store for later lookup
 
                 tr.innerHTML = `
-                    <td style="font-family:monospace;color:#c4b5fd;">${esc(emp.employeeId)}</td>
+                    <td style="font-family:monospace;color:#c4b5fd;">${index + 1}</td>
                     <td style="font-weight:500;">${esc(emp.login)}</td>
                     <td>${roleBadge(emp.role)}</td>
                     <td>${esc(emp.lastName)}</td>

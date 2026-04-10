@@ -4,8 +4,8 @@ FROM ubuntu:22.04 AS builder
 # Avoid interactive prompts during apt-get (e.g. tzdata)
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y \
+# Change mirror to Yandex and Install build dependencies
+RUN apt-get update -y || apt-get update -y && apt-get install -y \
     build-essential \
     cmake \
     git \
@@ -26,7 +26,7 @@ RUN git clone https://github.com/drogonframework/drogon.git /tmp/drogon \
     && git submodule update --init \
     && mkdir build && cd build \
     && cmake .. -DCMAKE_BUILD_TYPE=Release \
-    && make -j$(nproc) install \
+    && make -j1 install \
     && rm -rf /tmp/drogon
 
 # Set up project build
@@ -36,7 +36,7 @@ COPY . .
 # Build our License Server
 RUN mkdir build && cd build \
     && cmake .. -DCMAKE_BUILD_TYPE=Release \
-    && make -j$(nproc)
+    && make -j1
 
 # Stage 2: Runtime
 FROM ubuntu:22.04
@@ -44,16 +44,19 @@ FROM ubuntu:22.04
 # Avoid interactive prompts during apt-get (e.g. tzdata)
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
+# Change mirror to Yandex and Install runtime dependencies
+RUN apt-get update -y || apt-get update -y && apt-get install -y \
     libqt6core6 \
     libqt6sql6 \
     libqt6sql6-psql \
+    libqt6network6 \
+    libqt6dbus6 \
     libjsoncpp25 \
     libuuid1 \
     libssl3 \
     libsqlite3-0 \
     postgresql-client \
+    && ldconfig \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
