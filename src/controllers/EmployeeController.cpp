@@ -36,7 +36,7 @@ void EmployeeController::addEmployee(
 
     if (login.isEmpty() || password.isEmpty() || role.isEmpty() ||
         firstName.isEmpty() || lastName.isEmpty()) {
-      throw std::invalid_argument("All mandatory fields must be provided.");
+      throw std::invalid_argument("Необходимо заполнить все обязательные поля.");
     }
 
     std::string adminEmpId = req->session()->get<std::string>("employee_id");
@@ -49,8 +49,8 @@ void EmployeeController::addEmployee(
 
     if (!success) {
       throw std::runtime_error(
-          "Server error: Could not save employee to database. Login or "
-          "Employee ID might already exist.");
+          "Ошибка сервера: не удалось сохранить сотрудника. "
+          "Возможно, логин или ID сотрудника уже существует.");
     }
 
     Json::Value ret;
@@ -140,7 +140,7 @@ void EmployeeController::updateEmployee(
         qEmployeeId, login, password, role, firstName, lastName, middleName);
 
     if (!success) {
-      throw std::runtime_error("Server error: Could not update employee.");
+      throw std::runtime_error("Ошибка сервера: не удалось обновить данные сотрудника.");
     }
     
     std::string adminEmpId = req->session()->get<std::string>("employee_id");
@@ -178,12 +178,12 @@ void EmployeeController::deleteEmployee(
     QString qEmployeeId = QString::fromStdString(employeeId);
 
     if (qEmployeeId == QString::fromStdString(req->session()->get<std::string>("employee_id"))) {
-      throw std::invalid_argument("You cannot delete your own account.");
+      throw std::invalid_argument("Вы не можете удалить собственный аккаунт.");
     }
 
     bool success = DatabaseController::instance().deleteEmployee(qEmployeeId);
     if (!success) {
-      throw std::runtime_error("Error deleting employee (verify no dependent records exist).");
+      throw std::runtime_error("Ошибка удаления сотрудника (убедитесь, что нет зависимых записей).");
     }
 
     std::string adminEmpId = req->session()->get<std::string>("employee_id");

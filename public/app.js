@@ -12,6 +12,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentUserRole = '';
 
+    // ─── Единый показ ошибок ─────────────────────────────────────────────────
+    function showError(msg) {
+        errorMessage.textContent = msg;
+        errorToast.classList.remove('hidden');
+        setTimeout(() => errorToast.classList.add('hidden'), 6000);
+    }
+
+    function showFormError(msgSpan, boxEl, msg) {
+        msgSpan.textContent = msg;
+        boxEl.classList.remove('hidden');
+    }
+
     // Check if logged in & get role
     fetch('/api/me').then(async res => {
         if (!res.ok) {
@@ -131,7 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const result = await response.json();
             if (!response.ok) {
-                throw new Error(result.error || 'Failed to add company');
+                throw new Error(result.error || 'Не удалось добавить компанию.');
             }
 
             // Success: reload companies & select the new one
@@ -151,11 +163,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const errBox = document.getElementById('companyError');
             const errMsg = document.getElementById('companyErrorMessage');
             if (errBox && errMsg) {
-                errMsg.textContent = error.message;
-                errBox.classList.remove('hidden');
+                showFormError(errMsg, errBox, error.message);
             } else {
-                errorMessage.textContent = error.message;
-                errorToast.classList.remove('hidden');
+                showError(error.message);
             }
         } finally {
             const btn = document.getElementById('addCompanySubmitBtn');
@@ -167,8 +177,38 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentLicenseData = null;
 
 
+    generateForm.setAttribute('novalidate', '');
+
     generateForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+
+        // ── Ручная клиентская валидация (вместо браузерных всплывашек) ───────
+        const companyVal = generateForm.elements['companyName'].value;
+        const hwVal = generateForm.elements['hardwareId'].value.trim();
+        const issueDateVal = generateForm.elements['issueDate'].value.trim();
+        const expiredDateVal = generateForm.elements['expiredDate'].value.trim();
+        const modulesChecked = generateForm.querySelectorAll('input[name="modules"]:checked').length > 0;
+
+        if (!companyVal) {
+            showError('Пожалуйста, выберите компанию из списка.');
+            return;
+        }
+        if (!hwVal) {
+            showError('Пожалуйста, заполните поле Hardware ID.');
+            return;
+        }
+        if (!issueDateVal) {
+            showError('Пожалуйста, укажите дату выдачи.');
+            return;
+        }
+        if (!expiredDateVal) {
+            showError('Пожалуйста, укажите дату окончания.');
+            return;
+        }
+        if (!modulesChecked) {
+            showError('Пожалуйста, выберите предоставляемые модули.');
+            return;
+        }
 
         // Reset UI
         resultArea.classList.add('hidden');
@@ -238,9 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
             resultArea.classList.remove('hidden');
 
         } catch (error) {
-            // Show error
-            errorMessage.textContent = error.message;
-            errorToast.classList.remove('hidden');
+            showError(error.message);
         } finally {
             // Restore button
             btnText.classList.remove('hidden');

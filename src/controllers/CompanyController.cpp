@@ -55,7 +55,7 @@ void CompanyController::addCompany(
     QRegularExpression companyRegex("^[a-zA-Zа-яА-ЯёЁ0-9\\s,.\\-&\"']+$");
     if (!companyRegex.match(companyName).hasMatch()) {
       Json::Value error;
-      error["error"] = "Company name contains invalid characters.";
+      error["error"] = "Название компании содержит недопустимые символы.";
       auto resp = HttpResponse::newHttpJsonResponse(error);
       resp->setStatusCode(k400BadRequest);
       callback(resp);
@@ -76,7 +76,7 @@ void CompanyController::addCompany(
 
     if (companyName.isEmpty()) {
       Json::Value error;
-      error["error"] = "Company name is strictly required";
+      error["error"] = "Название компании является обязательным.";
       auto resp = HttpResponse::newHttpJsonResponse(error);
       resp->setStatusCode(k400BadRequest);
       callback(resp);
@@ -89,7 +89,7 @@ void CompanyController::addCompany(
     record.contacts = contacts;
 
     if (!DatabaseController::instance().addCompany(record)) {
-      throw std::runtime_error("Error saving company to database");
+      throw std::runtime_error("Ошибка сохранения компании в базу данных.");
     }
 
     std::string username = req->session()->get<std::string>("user_id");
@@ -129,7 +129,7 @@ void CompanyController::updateCompany(
     std::string role = req->session()->get<std::string>("role");
     if (role == "junior_manager") {
       Json::Value error;
-      error["error"] = "Access denied: Junior managers cannot update companies.";
+      error["error"] = "Доступ запрещён: младший менеджер не может редактировать компании.";
       auto resp = HttpResponse::newHttpJsonResponse(error);
       resp->setStatusCode(k403Forbidden);
       callback(resp);
@@ -169,7 +169,7 @@ void CompanyController::updateCompany(
     record.contacts = contacts;
 
     if (!DatabaseController::instance().updateCompany(companyName, record)) {
-      throw std::runtime_error("Error updating company in database");
+      throw std::runtime_error("Ошибка обновления компании в базе данных.");
     }
 
     std::string username = req->session()->get<std::string>("user_id");
@@ -201,7 +201,7 @@ void CompanyController::deleteCompany(
     std::string role = req->session()->get<std::string>("role");
     if (role == "junior_manager") {
       Json::Value error;
-      error["error"] = "Access denied: Junior managers cannot delete companies.";
+      error["error"] = "Доступ запрещён: младший менеджер не может удалять компании.";
       auto resp = HttpResponse::newHttpJsonResponse(error);
       resp->setStatusCode(k403Forbidden);
       callback(resp);
@@ -212,7 +212,7 @@ void CompanyController::deleteCompany(
 
     if (!DatabaseController::instance().deleteCompany(companyName)) {
       Json::Value error;
-      error["error"] = "Cannot delete company. It may not exist or has associated licenses.";
+      error["error"] = "Невозможно удалить компанию. Возможно, она не существует или имеет связанные лицензии.";
       auto resp = HttpResponse::newHttpJsonResponse(error);
       resp->setStatusCode(k400BadRequest);
       callback(resp);

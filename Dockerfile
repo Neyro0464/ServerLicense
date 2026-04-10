@@ -1,10 +1,9 @@
 # Stage 1: Build
 FROM ubuntu:22.04 AS builder
 
-# Avoid interactive prompts during apt-get (e.g. tzdata)
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Change mirror to Yandex and Install build dependencies
+# Install build dependencies
 RUN apt-get update -y || apt-get update -y && apt-get install -y \
     build-essential \
     cmake \
@@ -44,7 +43,6 @@ FROM ubuntu:22.04
 # Avoid interactive prompts during apt-get (e.g. tzdata)
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Change mirror to Yandex and Install runtime dependencies
 RUN apt-get update -y || apt-get update -y && apt-get install -y \
     libqt6core6 \
     libqt6sql6 \

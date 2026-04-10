@@ -9,9 +9,9 @@
 
 #include <QDate>
 #include <QDateTime>
+#include <QRegularExpression>
 #include <QString>
 #include <QVector>
-#include <QRegularExpression>
 
 using namespace drogon;
 
@@ -41,8 +41,8 @@ void LicenseController::generate(
     if (companyName.isEmpty() || hardwareId.isEmpty() || issueDate.isEmpty() ||
         expiredDate.isEmpty()) {
       Json::Value error;
-      error["error"] = "All fields (companyName, hardwareId, issueDate, "
-                       "expiredDate) must be non-empty.";
+      error["error"] = "Все поля (название компании, Hardware ID, дата выдачи, "
+                       "дата окончания) должны быть заполнены.";
       auto resp = HttpResponse::newHttpJsonResponse(error);
       resp->setStatusCode(k400BadRequest);
       callback(resp);
@@ -54,7 +54,8 @@ void LicenseController::generate(
 
     if (!hwRegex.match(hardwareId).hasMatch()) {
       Json::Value error;
-      error["error"] = "Hardware ID can only contain letters, digits, and dashes.";
+      error["error"] =
+          "Hardware ID может содержать только буквы, цифры и дефисы.";
       auto resp = HttpResponse::newHttpJsonResponse(error);
       resp->setStatusCode(k400BadRequest);
       callback(resp);
@@ -63,7 +64,7 @@ void LicenseController::generate(
 
     if (!companyRegex.match(companyName).hasMatch()) {
       Json::Value error;
-      error["error"] = "Company name contains invalid characters.";
+      error["error"] = "Название компании содержит недопустимые символы.";
       auto resp = HttpResponse::newHttpJsonResponse(error);
       resp->setStatusCode(k400BadRequest);
       callback(resp);
@@ -98,7 +99,7 @@ void LicenseController::generate(
     // Validate dates before saving
     if (!record.issueDate.isValid() || !record.expiredDate.isValid()) {
       Json::Value error;
-      error["error"] = "Invalid date format";
+      error["error"] = "Неверный формат даты. Используйте дд.мм.гггг.";
       auto resp = HttpResponse::newHttpJsonResponse(error);
       resp->setStatusCode(k400BadRequest);
       callback(resp);
@@ -109,7 +110,7 @@ void LicenseController::generate(
     std::string employeeId = req->session()->get<std::string>("employee_id");
     if (!DatabaseController::instance().saveLicense(
             record, QString::fromStdString(employeeId))) {
-      throw std::runtime_error("Error saving to database");
+      throw std::runtime_error("Ошибка сохранения лицензии в базу данных.");
     }
 
     // Log the successful generation
@@ -204,8 +205,10 @@ void LicenseController::deleteLicense(
     std::function<void(const HttpResponsePtr &)> &&callback, std::string id) {
 
   std::string role = req->session()->get<std::string>("role");
-  if (role != "admin") {
-    auto resp = HttpResponse::newHttpResponse();
+  if (role != "director") {
+    Json::Value error;
+    error["error"] = "Недостаточно прав для удаления лицензии.";
+    auto resp = HttpResponse::newHttpJsonResponse(error);
     resp->setStatusCode(k403Forbidden);
     callback(resp);
     return;
@@ -225,7 +228,8 @@ void LicenseController::deleteLicense(
     callback(resp);
   } else {
     Json::Value error;
-    error["error"] = "Failed to delete license. It may not exist.";
+    error["error"] =
+        "Не удалось удалить лицензию. Возможно, она не существует.";
     auto resp = HttpResponse::newHttpJsonResponse(error);
     resp->setStatusCode(k404NotFound);
     callback(resp);

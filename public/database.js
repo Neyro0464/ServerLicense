@@ -37,6 +37,18 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => errorToast.classList.add('hidden'), 5000);
     }
 
+    // Безопасно читает тело ответа и возвращает русское сообщение об ошибке
+    async function safeDeleteError(response, fallback) {
+        try {
+            const ct = response.headers.get('content-type') || '';
+            if (ct.includes('application/json')) {
+                const d = await response.json();
+                return d.error || fallback;
+            }
+        } catch { /* пустое тело или не JSON */ }
+        return fallback;
+    }
+
     function showFormError(spanId, boxId, msg) {
         document.getElementById(spanId).textContent = msg;
         document.getElementById(boxId).classList.remove('hidden');
@@ -158,8 +170,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // ─── ACTION BUTTONS HTML ──────────────────────────────────────────────────────
     function actionBtns(editFn, deleteFn) {
         return `<div style="display:flex;gap:0.5rem;">
-            <button class="action-btn action-btn--edit" onclick="${editFn}">✏️ Edit</button>
-            <button class="action-btn action-btn--delete" onclick="${deleteFn}">🗑️ Delete</button>
+            <button class="action-btn action-btn--edit" onclick="${editFn}">✏️ Редактировать</button>
+            <button class="action-btn action-btn--delete" onclick="${deleteFn}">🗑️ Удалить</button>
         </div>`;
     }
 
@@ -247,7 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const res = await fetch('/api/licenses');
-            if (!res.ok) { if (res.status === 401) { window.location.href = '/login.html'; return; } throw new Error('Не удалось получить лицензии'); }
+            if (!res.ok) { if (res.status === 401) { window.location.href = '/login.html'; return; } throw new Error('Не удалось загрузить список лицензий.'); }
             allLicensesData = await res.json();
             licensesLoaded = true;
             renderLicenses();
@@ -256,7 +268,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 showConfirmDelete(`Удалить лицензию? Это действие нельзя будет отменить.`, async () => {
                     try {
                         const r = await fetch(`/api/licenses/${id}`, { method: 'DELETE' });
-                        if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Ошибка удаления'); }
+                        if (!r.ok) { throw new Error(await safeDeleteError(r, 'Не удалось удалить лицензию.')); }
                         licensesLoaded = false;
                         await loadLicenses();
                     } catch(e) { showError(e.message); }
@@ -299,7 +311,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const res = await fetch('/api/companies');
-            if (!res.ok) throw new Error('Не удалось получить компании');
+            if (!res.ok) throw new Error('Не удалось загрузить список компаний.');
             const data = await res.json();
             companiesLoaded = true;
             tbody.innerHTML = '';
@@ -363,7 +375,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     showConfirmDelete(`Удалить компанию "${key}"? Связанные лицензии также могут быть удалены.`, async () => {
                         try {
                             const r = await fetch(`/api/companies/${encodeURIComponent(key)}`, { method: 'DELETE' });
-                            if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Ошибка удаления'); }
+                            if (!r.ok) { throw new Error(await safeDeleteError(r, 'Не удалось удалить компанию.')); }
                             companiesLoaded = false;
                             loadCompanies();
                         } catch(e2) { showError(e2.message); }
@@ -401,7 +413,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
-            if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Ошибка обновления'); }
+            if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Ошибка обновления компании.'); }
             editCompanyModal.classList.add('hidden');
             companiesLoaded = false;
             loadCompanies();
@@ -442,7 +454,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
-            if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Ошибка при добавлении компании'); }
+            if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Ошибка при добавлении компании.'); }
             addCompanyDbModal.classList.add('hidden');
             companiesLoaded = false;
             loadCompanies();
@@ -463,8 +475,8 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const res = await fetch('/api/employees');
             if (!res.ok) {
-                if (res.status === 403) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--error);">Доступ запрещен.</td></tr>'; return; }
-                throw new Error('Не удалось получить сотрудников');
+                if (res.status === 403) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--error);">Доступ запрещён.</td></tr>'; return; }
+                throw new Error('Не удалось загрузить список сотрудников.');
             }
             const data = await res.json();
             employeesLoaded = true;
@@ -521,7 +533,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     showConfirmDelete(`Удалить сотрудника "${login}" (ID: ${key})? Его аккаунт также будет удален.`, async () => {
                         try {
                             const r = await fetch(`/api/employees/${encodeURIComponent(key)}`, { method: 'DELETE' });
-                            if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Ошибка удаления'); }
+                            if (!r.ok) { throw new Error(await safeDeleteError(r, 'Не удалось удалить сотрудника.')); }
                             employeesLoaded = false;
                             loadEmployees();
                         } catch(e2) { showError(e2.message); }
@@ -584,7 +596,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify(data)
                 });
             }
-            if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Ошибка сохранения сотрудника'); }
+            if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Ошибка сохранения данных сотрудника.'); }
             editEmployeeModal.classList.add('hidden');
             employeesLoaded = false;
             loadEmployees();
