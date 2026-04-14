@@ -44,6 +44,11 @@
             "version": 8,
             "applySql": "INSERT INTO modules (module_name, description) VALUES ('SDR_reader', 'Модуль чтения SDR данных'), ('SDR_writer', 'Модуль записи SDR данных'), ('SDR_exec', 'Модуль выполнения SDR команд'), ('TLE_reader', 'Модуль чтения TLE данных'), ('TLE_writer', 'Модуль записи TLE данных'), ('TLE_exec', 'Модуль выполнения TLE команд') ON CONFLICT (module_name) DO NOTHING;",
             "revertSql": "DELETE FROM modules WHERE module_name IN ('SDR_reader', 'SDR_writer', 'SDR_exec', 'TLE_reader', 'TLE_writer', 'TLE_exec');"
+        },
+        {
+            "version": 9,
+            "applySql": "INSERT INTO modules (module_name, description) VALUES ('SDR_analisis', 'Базовый модуль анализа SDR'), ('TLE_analisis', 'Базовый модуль анализа TLE') ON CONFLICT (module_name) DO NOTHING;",
+            "revertSql": "DELETE FROM modules WHERE module_name IN ('SDR_analisis', 'TLE_analisis');"
         }
     ]
 }

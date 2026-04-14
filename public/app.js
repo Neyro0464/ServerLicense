@@ -98,26 +98,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /**
      * Groups a flat list of module names by their prefix (part before first '_').
-     * E.g. ['SDR_reader', 'SDR_writer', 'TLE_exec'] →
-     *   { SDR: ['SDR_reader', 'SDR_writer'], TLE: ['TLE_exec'] }
-     * Modules without '_' go into a special 'Другие' group.
+     * E.g. ['SDR_analisis', 'SDR_reader', 'SDR_writer', 'TLE_exec'] →
+     *   { SDR: ['SDR_analisis', 'SDR_reader', 'SDR_writer'], TLE: ['TLE_exec'] }
+     * Modules without '_' form their own single-item groups.
      */
     function groupModules(names) {
         const groups = {};
         for (const name of names) {
             const idx = name.indexOf('_');
-            const prefix = idx > 0 ? name.slice(0, idx) : 'Другие';
+            const prefix = idx > 0 ? name.slice(0, idx) : name;
             if (!groups[prefix]) groups[prefix] = [];
             groups[prefix].push(name);
+        }
+        // Sort each group alphabetically so the _analisis module reliably comes first
+        for (const key of Object.keys(groups)) {
+            groups[key].sort();
         }
         return groups;
     }
 
     /**
      * Renders the hierarchical module tree into #modulesContainer.
-     * Each group has a virtual "header" checkbox (not submitted) that:
-     *   - checks all children when clicked
-     *   - reflects indeterminate state when only some children are checked
+     *
+     * Layout per group:
+     *   [✓] SDR_analisis          ← real module (independently selectable) + "Все ↓" btn
+     *   └─ [ ] SDR_reader         ← real child module
+     *   └─ [ ] SDR_writer
+     *   └─ [ ] SDR_exec
+     *
+     * Rules:
+     *  - Header checkbox is a REAL module (name="modules") — can be selected alone.
+     *  - "Все ↓" button selects/deselects ALL children (not the header).
+     *  - Children are independent; no automatic cascade from header.
      */
     function renderModuleTree(moduleNames) {
         modulesContainer.innerHTML = '';
@@ -130,38 +142,59 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const groups = groupModules(moduleNames);
 
-        for (const [prefix, children] of Object.entries(groups)) {
+        for (const [prefix, members] of Object.entries(groups)) {
+            // First member is the header/parent module; rest are children
+            const [headerName, ...childNames] = members;
+
             const groupEl = document.createElement('div');
             groupEl.className = 'module-group';
 
-            // ── Header (virtual checkbox) ─────────────────────────────────────
-            const headerEl = document.createElement('label');
-            headerEl.className = 'module-group-header';
+            // ── Header row ──────────────────────────────────────────────────
+            const headerRow = document.createElement('div');
+            headerRow.className = 'module-group-header-row';
+
+            // Header label + real checkbox
+            const headerLabel = document.createElement('label');
+            headerLabel.className = 'module-group-header';
 
             const headerCb = document.createElement('input');
             headerCb.type = 'checkbox';
             headerCb.className = 'module-header-cb';
-            // Not named 'modules' — won't be submitted
-            headerCb.dataset.group = prefix;
+            headerCb.name = 'modules';   // ← REAL module, gets submitted
+            headerCb.value = headerName;
 
             const headerMark = document.createElement('span');
             headerMark.className = 'checkmark';
 
             const headerText = document.createElement('span');
-            headerText.textContent = prefix;
+            headerText.textContent = headerName;
 
-            headerEl.appendChild(headerCb);
-            headerEl.appendChild(headerMark);
-            headerEl.appendChild(headerText);
-            groupEl.appendChild(headerEl);
+            headerLabel.appendChild(headerCb);
+            headerLabel.appendChild(headerMark);
+            headerLabel.appendChild(headerText);
+            headerRow.appendChild(headerLabel);
+
+            // "Все ↓" button — selects/deselects all CHILDREN (not header)
+            if (childNames.length > 0) {
+                const selectAllBtn = document.createElement('button');
+                selectAllBtn.type = 'button';
+                selectAllBtn.className = 'module-select-all-btn';
+                selectAllBtn.title = 'Выбрать / снять все дочерние модули';
+                selectAllBtn.textContent = 'Все ↓';
+                headerRow.appendChild(selectAllBtn);
+
+                // Attach listener after childCbs are built (see below)
+                groupEl._selectAllBtn = selectAllBtn;
+            }
+
+            groupEl.appendChild(headerRow);
 
             // ── Children ─────────────────────────────────────────────────────
             const childrenEl = document.createElement('div');
             childrenEl.className = 'module-group-children';
-
             const childCbs = [];
 
-            for (const mod of children) {
+            for (const mod of childNames) {
                 const childRow = document.createElement('div');
                 childRow.className = 'module-child';
 
@@ -170,7 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const childCb = document.createElement('input');
                 childCb.type = 'checkbox';
-                childCb.name = 'modules';   // submitted with the form
+                childCb.name = 'modules';   // real module, gets submitted
                 childCb.value = mod;
 
                 const childMark = document.createElement('span');
@@ -190,25 +223,13 @@ document.addEventListener('DOMContentLoaded', () => {
             groupEl.appendChild(childrenEl);
             modulesContainer.appendChild(groupEl);
 
-            // ── Sync logic ────────────────────────────────────────────────────
-
-            /** Update header checkbox state from children state */
-            function syncHeader() {
-                const total   = childCbs.length;
-                const checked = childCbs.filter(c => c.checked).length;
-                headerCb.checked       = checked === total;
-                headerCb.indeterminate = checked > 0 && checked < total;
+            // ── "Все ↓" toggle logic ──────────────────────────────────────────
+            if (groupEl._selectAllBtn && childCbs.length > 0) {
+                groupEl._selectAllBtn.addEventListener('click', () => {
+                    const allChecked = childCbs.every(c => c.checked);
+                    childCbs.forEach(c => { c.checked = !allChecked; });
+                });
             }
-
-            // Header → toggle all children
-            headerCb.addEventListener('change', () => {
-                const state = headerCb.checked;
-                childCbs.forEach(c => { c.checked = state; });
-                headerCb.indeterminate = false;
-            });
-
-            // Child → update header
-            childCbs.forEach(cb => cb.addEventListener('change', syncHeader));
         }
     }
 
