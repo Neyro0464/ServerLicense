@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QStringList>
 #include <drogon/HttpController.h>
 
 using namespace drogon;
@@ -16,6 +17,9 @@ public:
   // Map DELETE request to /api/licenses/{id}
   ADD_METHOD_TO(LicenseController::deleteLicense, "/api/licenses/{id}", Delete,
                 "AuthFilter");
+  // Map GET request to /api/modules
+  ADD_METHOD_TO(LicenseController::getModules, "/api/modules", Get,
+                "AuthFilter");
   METHOD_LIST_END
 
   // Route handler for generating a license
@@ -30,4 +34,8 @@ public:
   void deleteLicense(const HttpRequestPtr &req,
                      std::function<void(const HttpResponsePtr &)> &&callback,
                      std::string id);
+
+  // Route handler for getting all available modules
+  void getModules(const HttpRequestPtr &req,
+                  std::function<void(const HttpResponsePtr &)> &&callback);
 };

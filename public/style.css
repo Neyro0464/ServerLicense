@@ -900,3 +900,139 @@ body::after {
     background: rgba(139, 92, 246, 0.2);
     border-color: rgba(139, 92, 246, 0.6);
 }
+
+/* ─── Module Tree ────────────────────────────────────────────────────────── */
+.modules-tree-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 1rem;
+    border-radius: 10px;
+    border: 1px solid var(--glass-border);
+}
+
+.modules-loading {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    padding: 0.25rem 0;
+}
+
+/* ── Group wrapper ── */
+.module-group {
+    display: flex;
+    flex-direction: column;
+}
+
+/* ── Group header label (virtual checkbox) ── */
+.module-group-header {
+    display: flex;
+    align-items: center;
+    position: relative;
+    padding: 0.5rem 0.75rem 0.5rem calc(28px + 0.75rem);
+    cursor: pointer;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-main);
+    user-select: none;
+    background: rgba(139, 92, 246, 0.08);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    border-radius: 8px;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.module-group-header:hover {
+    background: rgba(139, 92, 246, 0.14);
+    border-color: rgba(139, 92, 246, 0.35);
+}
+
+/* Header checkbox — invisible real input, positioned for the custom .checkmark */
+.module-group-header input.module-header-cb {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+
+.module-group-header > .checkmark {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    left: 0.75rem;
+    height: 18px;
+    width: 18px;
+    background-color: var(--input-bg);
+    border: 1px solid rgba(139, 92, 246, 0.4);
+    border-radius: 4px;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.module-group-header:hover > .checkmark {
+    border-color: var(--primary);
+}
+
+.module-group-header input.module-header-cb:checked ~ .checkmark {
+    background-color: var(--primary);
+    border-color: var(--primary);
+}
+
+.module-group-header input.module-header-cb:indeterminate ~ .checkmark {
+    background-color: rgba(139, 92, 246, 0.4);
+    border-color: var(--primary);
+}
+
+.module-group-header .checkmark::after {
+    content: "";
+    position: absolute;
+    display: none;
+    left: 5px;
+    top: 2px;
+    width: 4px;
+    height: 8px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+.module-group-header input.module-header-cb:checked ~ .checkmark::after {
+    display: block;
+}
+
+/* ── Children container ── */
+.module-group-children {
+    display: flex;
+    flex-direction: column;
+    margin-left: 1rem;
+    border-left: 2px solid rgba(139, 92, 246, 0.25);
+    margin-top: 2px;
+}
+
+/* ── Individual child row ── */
+.module-child {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.045);
+}
+
+.module-child:last-child {
+    border-bottom: none;
+}
+
+.module-child-label {
+    display: flex;
+    align-items: center;
+    padding: 0.45rem 0.75rem 0.45rem calc(28px + 0.75rem);
+    font-size: 0.88rem;
+    font-weight: 400;
+    color: var(--text-muted);
+    transition: color 0.2s, background 0.2s;
+    border-radius: 0 6px 6px 0;
+}
+
+.module-child-label:hover {
+    color: #c4b5fd;
+    background: rgba(255, 255, 255, 0.03);
+}

@@ -68,27 +68,11 @@
 
                     <div class="input-group">
                         <label>Доступные модули</label>
-                        <div class="modules-grid">
-                            <label class="module-checkbox">
-                                <input type="checkbox" name="modules" value="Core">
-                                <span class="checkmark"></span>
-                                Базовое ядро (Core Engine)
-                            </label>
-                            <label class="module-checkbox">
-                                <input type="checkbox" name="modules" value="AI">
-                                <span class="checkmark"></span>
-                                ИИ ассистент (AI Assistant)
-                            </label>
-                            <label class="module-checkbox">
-                                <input type="checkbox" name="modules" value="Networking">
-                                <span class="checkmark"></span>
-                                Сетевой модуль (Networking)
-                            </label>
-                            <label class="module-checkbox">
-                                <input type="checkbox" name="modules" value="Analytics">
-                                <span class="checkmark"></span>
-                                Аналитика (Analytics Pro)
-                            </label>
+                        <div id="modulesContainer" class="modules-tree-container">
+                            <div class="modules-loading">
+                                <div class="inline-loader"></div>
+                                <span>Загрузка модулей...</span>
+                            </div>
                         </div>
                     </div>
 

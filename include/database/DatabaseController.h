@@ -4,6 +4,7 @@
 #include "models/CompanyRecord.h"
 #include <QSqlDatabase>
 #include <QString>
+#include <QStringList>
 #include <QVector>
 #include <memory>
 
@@ -68,6 +69,8 @@ public:
   QVector<CompanyRecord> getAllCompanies() const;
   bool updateCompany(const QString &companyName, const CompanyRecord &company);
   bool deleteCompany(const QString &companyName);
+
+  QStringList getAllModules() const;
 
   void cleanupOldLogs(int days);
 

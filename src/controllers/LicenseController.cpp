@@ -235,3 +235,25 @@ void LicenseController::deleteLicense(
     callback(resp);
   }
 }
+
+void LicenseController::getModules(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  try {
+    QStringList modules = DatabaseController::instance().getAllModules();
+
+    Json::Value responseJson(Json::arrayValue);
+    for (const auto &mod : modules) {
+      responseJson.append(mod.toStdString());
+    }
+
+    auto resp = HttpResponse::newHttpJsonResponse(responseJson);
+    callback(resp);
+  } catch (const std::exception &e) {
+    Json::Value error;
+    error["error"] = e.what();
+    auto resp = HttpResponse::newHttpJsonResponse(error);
+    resp->setStatusCode(k500InternalServerError);
+    callback(resp);
+  }
+}

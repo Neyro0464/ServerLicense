@@ -616,6 +616,25 @@ bool DatabaseController::deleteCompany(const QString &companyName) {
   return query.exec();
 }
 
+QStringList DatabaseController::getAllModules() const {
+  QStringList modules;
+  QSqlDatabase db = getConnection();
+  if (!db.isOpen())
+    return modules;
+
+  QSqlQuery query(db);
+  if (!query.exec("SELECT module_name FROM modules ORDER BY module_name")) {
+    qCritical() << "[DatabaseController] getAllModules failed:"
+                << query.lastError().text();
+    return modules;
+  }
+
+  while (query.next()) {
+    modules.append(query.value(0).toString());
+  }
+  return modules;
+}
+
 void DatabaseController::cleanupOldLogs(int days) {
   if (days <= 0) return; // Automatic cleanup disabled if <= 0
 

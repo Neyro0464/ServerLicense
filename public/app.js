@@ -92,6 +92,140 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     loadCompanies();
 
+    // ─── Modules Tree ─────────────────────────────────────────────────────────
+
+    const modulesContainer = document.getElementById('modulesContainer');
+
+    /**
+     * Groups a flat list of module names by their prefix (part before first '_').
+     * E.g. ['SDR_reader', 'SDR_writer', 'TLE_exec'] →
+     *   { SDR: ['SDR_reader', 'SDR_writer'], TLE: ['TLE_exec'] }
+     * Modules without '_' go into a special 'Другие' group.
+     */
+    function groupModules(names) {
+        const groups = {};
+        for (const name of names) {
+            const idx = name.indexOf('_');
+            const prefix = idx > 0 ? name.slice(0, idx) : 'Другие';
+            if (!groups[prefix]) groups[prefix] = [];
+            groups[prefix].push(name);
+        }
+        return groups;
+    }
+
+    /**
+     * Renders the hierarchical module tree into #modulesContainer.
+     * Each group has a virtual "header" checkbox (not submitted) that:
+     *   - checks all children when clicked
+     *   - reflects indeterminate state when only some children are checked
+     */
+    function renderModuleTree(moduleNames) {
+        modulesContainer.innerHTML = '';
+
+        if (!moduleNames.length) {
+            modulesContainer.innerHTML =
+                '<p style="color:var(--text-muted);font-size:0.9rem;padding:0.5rem">Нет доступных модулей.</p>';
+            return;
+        }
+
+        const groups = groupModules(moduleNames);
+
+        for (const [prefix, children] of Object.entries(groups)) {
+            const groupEl = document.createElement('div');
+            groupEl.className = 'module-group';
+
+            // ── Header (virtual checkbox) ─────────────────────────────────────
+            const headerEl = document.createElement('label');
+            headerEl.className = 'module-group-header';
+
+            const headerCb = document.createElement('input');
+            headerCb.type = 'checkbox';
+            headerCb.className = 'module-header-cb';
+            // Not named 'modules' — won't be submitted
+            headerCb.dataset.group = prefix;
+
+            const headerMark = document.createElement('span');
+            headerMark.className = 'checkmark';
+
+            const headerText = document.createElement('span');
+            headerText.textContent = prefix;
+
+            headerEl.appendChild(headerCb);
+            headerEl.appendChild(headerMark);
+            headerEl.appendChild(headerText);
+            groupEl.appendChild(headerEl);
+
+            // ── Children ─────────────────────────────────────────────────────
+            const childrenEl = document.createElement('div');
+            childrenEl.className = 'module-group-children';
+
+            const childCbs = [];
+
+            for (const mod of children) {
+                const childRow = document.createElement('div');
+                childRow.className = 'module-child';
+
+                const childLabel = document.createElement('label');
+                childLabel.className = 'module-checkbox module-child-label';
+
+                const childCb = document.createElement('input');
+                childCb.type = 'checkbox';
+                childCb.name = 'modules';   // submitted with the form
+                childCb.value = mod;
+
+                const childMark = document.createElement('span');
+                childMark.className = 'checkmark';
+
+                const childText = document.createElement('span');
+                childText.textContent = mod;
+
+                childLabel.appendChild(childCb);
+                childLabel.appendChild(childMark);
+                childLabel.appendChild(childText);
+                childRow.appendChild(childLabel);
+                childrenEl.appendChild(childRow);
+                childCbs.push(childCb);
+            }
+
+            groupEl.appendChild(childrenEl);
+            modulesContainer.appendChild(groupEl);
+
+            // ── Sync logic ────────────────────────────────────────────────────
+
+            /** Update header checkbox state from children state */
+            function syncHeader() {
+                const total   = childCbs.length;
+                const checked = childCbs.filter(c => c.checked).length;
+                headerCb.checked       = checked === total;
+                headerCb.indeterminate = checked > 0 && checked < total;
+            }
+
+            // Header → toggle all children
+            headerCb.addEventListener('change', () => {
+                const state = headerCb.checked;
+                childCbs.forEach(c => { c.checked = state; });
+                headerCb.indeterminate = false;
+            });
+
+            // Child → update header
+            childCbs.forEach(cb => cb.addEventListener('change', syncHeader));
+        }
+    }
+
+    async function loadModules() {
+        try {
+            const res = await fetch('/api/modules');
+            if (!res.ok) throw new Error('Не удалось загрузить список модулей');
+            const names = await res.json();
+            renderModuleTree(names);
+        } catch (e) {
+            modulesContainer.innerHTML =
+                `<p style="color:var(--error);font-size:0.9rem;padding:0.5rem">${e.message}</p>`;
+            console.error('loadModules error:', e);
+        }
+    }
+    loadModules();
+
     // Modal logic
     const addCompanyModal = document.getElementById('addCompanyModal');
     const openAddCompanyBtn = document.getElementById('openAddCompanyBtn');
