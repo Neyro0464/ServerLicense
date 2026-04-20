@@ -49,6 +49,11 @@
             "version": 9,
             "applySql": "INSERT INTO modules (module_name, description) VALUES ('SDR_analisis', 'Базовый модуль анализа SDR'), ('TLE_analisis', 'Базовый модуль анализа TLE') ON CONFLICT (module_name) DO NOTHING;",
             "revertSql": "DELETE FROM modules WHERE module_name IN ('SDR_analisis', 'TLE_analisis');"
+        },
+        {
+            "version": 10,
+            "applySql": "DELETE FROM license_modules WHERE module_name IN ('SDR_reader', 'SDR_writer', 'SDR_exec', 'TLE_reader', 'TLE_writer', 'TLE_exec', 'SDR_analisis', 'TLE_analisis'); DELETE FROM modules WHERE module_name IN ('SDR_reader', 'SDR_writer', 'SDR_exec', 'TLE_reader', 'TLE_writer', 'TLE_exec', 'SDR_analisis', 'TLE_analisis'); INSERT INTO modules (module_name, description) VALUES ('SDR_receiver', 'SDR-приёмник: базовый модуль группы SDR'), ('SDR_analisis', 'Анализатор спектра SDR'), ('Monopulse', 'Моноимпульсный модуль (SDR + Трэкинг)'), ('Tracking', 'Трэкинг: базовый модуль группы Трэкинг'), ('TLE', 'TLE — расчёт орбиты по элементам') ON CONFLICT (module_name) DO NOTHING;",
+            "revertSql": "DELETE FROM modules WHERE module_name IN ('SDR_receiver', 'SDR_analisis', 'Monopulse', 'Tracking', 'TLE');"
         }
     ]
 }

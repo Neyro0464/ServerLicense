@@ -97,104 +97,104 @@ document.addEventListener('DOMContentLoaded', () => {
     const modulesContainer = document.getElementById('modulesContainer');
 
     /**
-     * Groups a flat list of module names by their prefix (part before first '_').
-     * E.g. ['SDR_analisis', 'SDR_reader', 'SDR_writer', 'TLE_exec'] →
-     *   { SDR: ['SDR_analisis', 'SDR_reader', 'SDR_writer'], TLE: ['TLE_exec'] }
-     * Modules without '_' form their own single-item groups.
-     */
-    function groupModules(names) {
-        const groups = {};
-        for (const name of names) {
-            const idx = name.indexOf('_');
-            const prefix = idx > 0 ? name.slice(0, idx) : name;
-            if (!groups[prefix]) groups[prefix] = [];
-            groups[prefix].push(name);
-        }
-        // Sort each group alphabetically so the _analisis module reliably comes first
-        for (const key of Object.keys(groups)) {
-            groups[key].sort();
-        }
-        return groups;
-    }
-
-    /**
-     * Renders the hierarchical module tree into #modulesContainer.
+     * Жёсткая структура двух групп модулей.
      *
-     * Layout per group:
-     *   [✓] SDR_analisis          ← real module (independently selectable) + "Все ↓" btn
-     *   └─ [ ] SDR_reader         ← real child module
-     *   └─ [ ] SDR_writer
-     *   └─ [ ] SDR_exec
+     * Группа "SDR_receiver":
+     *   [x] SDR_receiver   ← заголовок (родительский модуль)
+     *       [x] SDR_analisis
+     *       [x] Monopulse   ← связан с Monopulse в группе Tracking
      *
-     * Rules:
-     *  - Header checkbox is a REAL module (name="modules") — can be selected alone.
-     *  - "Все ↓" button selects/deselects ALL children (not the header).
-     *  - Children are independent; no automatic cascade from header.
+     * Группа "Tracking":
+     *   [x] Tracking        ← заголовок (родительский модуль)
+     *       [x] Monopulse   ← связан с Monopulse в группе SDR_receiver
+     *       [x] TLE
+     *
+     * Правила привязки:
+     *  1. При выборе любого дочернего модуля автоматически выбирается заголовок его группы.
+     *  2. При снятии заголовка снимаются все дочерние модули его группы.
+     *  3. Моноимпульсный (Monopulse) синхронизируется в обоих группах:
+     *     выбор/снятие в одной группе — автоматически повторяется в другой.
      */
-    function renderModuleTree(moduleNames) {
+    function renderModuleTree(availableModuleNames) {
         modulesContainer.innerHTML = '';
 
-        if (!moduleNames.length) {
-            modulesContainer.innerHTML =
-                '<p style="color:var(--text-muted);font-size:0.9rem;padding:0.5rem">Нет доступных модулей.</p>';
-            return;
-        }
+        // Жёсткое описание дерева
+        const TREE = [
+            {
+                parentKey: 'SDR_receiver',
+                parentLabel: 'SDR_приёмник',
+                children: [
+                    { key: 'SDR_analisis', label: 'Анализатор спектра' },
+                    { key: 'Monopulse',    label: 'Моноимпульсный' }
+                ]
+            },
+            {
+                parentKey: 'Tracking',
+                parentLabel: 'Трэкинг',
+                children: [
+                    { key: 'Monopulse', label: 'Моноимпульсный' },
+                    { key: 'TLE',       label: 'TLE' }
+                ]
+            }
+        ];
 
-        const groups = groupModules(moduleNames);
+        // Фильтруем только те модули, которые реально есть в БД
+        const available = new Set(availableModuleNames);
 
-        for (const [prefix, members] of Object.entries(groups)) {
-            // First member is the header/parent module; rest are children
-            const [headerName, ...childNames] = members;
+        // Словарь: key → массив всех checkbox-ов с таким value (для синхронизации Monopulse)
+        const cbByKey = {};
+
+        const registerCb = (key, cb) => {
+            if (!cbByKey[key]) cbByKey[key] = [];
+            cbByKey[key].push(cb);
+        };
+
+        // Сначала создаём все элементы, потом навешиваем слушатели
+        const groupMeta = []; // { parentCb, childCbs }
+
+        for (const group of TREE) {
+            // Пропускаем группу если родитель отсутствует в БД
+            if (!available.has(group.parentKey)) continue;
 
             const groupEl = document.createElement('div');
             groupEl.className = 'module-group';
 
-            // ── Header row ──────────────────────────────────────────────────
+            // ── Заголовочная строка ──────────────────────────────────────
             const headerRow = document.createElement('div');
             headerRow.className = 'module-group-header-row';
 
-            // Header label + real checkbox
             const headerLabel = document.createElement('label');
             headerLabel.className = 'module-group-header';
 
             const headerCb = document.createElement('input');
             headerCb.type = 'checkbox';
             headerCb.className = 'module-header-cb';
-            headerCb.name = 'modules';   // ← REAL module, gets submitted
-            headerCb.value = headerName;
+            headerCb.name = 'modules';
+            headerCb.value = group.parentKey;
+            headerCb.dataset.groupParent = group.parentKey;
 
             const headerMark = document.createElement('span');
             headerMark.className = 'checkmark';
 
             const headerText = document.createElement('span');
-            headerText.textContent = headerName;
+            headerText.textContent = group.parentLabel;
 
             headerLabel.appendChild(headerCb);
             headerLabel.appendChild(headerMark);
             headerLabel.appendChild(headerText);
             headerRow.appendChild(headerLabel);
-
-            // "Все ↓" button — selects/deselects all CHILDREN (not header)
-            if (childNames.length > 0) {
-                const selectAllBtn = document.createElement('button');
-                selectAllBtn.type = 'button';
-                selectAllBtn.className = 'module-select-all-btn';
-                selectAllBtn.title = 'Выбрать / снять все дочерние модули';
-                selectAllBtn.textContent = 'Все ↓';
-                headerRow.appendChild(selectAllBtn);
-
-                // Attach listener after childCbs are built (see below)
-                groupEl._selectAllBtn = selectAllBtn;
-            }
-
             groupEl.appendChild(headerRow);
 
-            // ── Children ─────────────────────────────────────────────────────
+            registerCb(group.parentKey, headerCb);
+
+            // ── Дочерние модули ──────────────────────────────────────────
             const childrenEl = document.createElement('div');
             childrenEl.className = 'module-group-children';
             const childCbs = [];
 
-            for (const mod of childNames) {
+            for (const child of group.children) {
+                if (!available.has(child.key)) continue;
+
                 const childRow = document.createElement('div');
                 childRow.className = 'module-child';
 
@@ -203,14 +203,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const childCb = document.createElement('input');
                 childCb.type = 'checkbox';
-                childCb.name = 'modules';   // real module, gets submitted
-                childCb.value = mod;
+                childCb.name = 'modules';
+                childCb.value = child.key;
+                childCb.dataset.groupChild = group.parentKey;
 
                 const childMark = document.createElement('span');
                 childMark.className = 'checkmark';
 
                 const childText = document.createElement('span');
-                childText.textContent = mod;
+                childText.textContent = child.label;
 
                 childLabel.appendChild(childCb);
                 childLabel.appendChild(childMark);
@@ -218,18 +219,71 @@ document.addEventListener('DOMContentLoaded', () => {
                 childRow.appendChild(childLabel);
                 childrenEl.appendChild(childRow);
                 childCbs.push(childCb);
+
+                registerCb(child.key, childCb);
             }
 
             groupEl.appendChild(childrenEl);
             modulesContainer.appendChild(groupEl);
 
-            // ── "Все ↓" toggle logic ──────────────────────────────────────────
-            if (groupEl._selectAllBtn && childCbs.length > 0) {
-                groupEl._selectAllBtn.addEventListener('click', () => {
-                    const allChecked = childCbs.every(c => c.checked);
-                    childCbs.forEach(c => { c.checked = !allChecked; });
+            groupMeta.push({ parentKey: group.parentKey, parentCb: headerCb, childCbs });
+        }
+
+        if (!groupMeta.length) {
+            modulesContainer.innerHTML =
+                '<p style="color:var(--text-muted);font-size:0.9rem;padding:0.5rem">Нет доступных модулей.</p>';
+            return;
+        }
+
+        // ── Навешиваем слушатели после построения DOM ────────────────────
+
+        // Вспомогательная: синхронизировать все cb с одинаковым key (cross-group)
+        const syncKey = (key, checked, originCb) => {
+            (cbByKey[key] || []).forEach(cb => {
+                if (cb !== originCb) cb.checked = checked;
+            });
+        };
+
+        // Правило 1: дочерний выбран → заголовок выбирается автоматически
+        // Правило 2: заголовок снят  → все дочерние снимаются
+        // Правило 3: Monopulse синхронизируется между группами
+        for (const meta of groupMeta) {
+            // Слушатель на каждый дочерний чекбокс
+            for (const childCb of meta.childCbs) {
+                childCb.addEventListener('change', () => {
+                    if (childCb.checked) {
+                        // Правило 1: включить заголовок
+                        meta.parentCb.checked = true;
+                        syncKey(meta.parentKey, true, meta.parentCb);
+                    }
+                    // Правило 3: синхронизация cross-group
+                    syncKey(childCb.value, childCb.checked, childCb);
+
+                    // Если это Monopulse и он включён — включаем заголовок в другой группе тоже
+                    if (childCb.value === 'Monopulse' && childCb.checked) {
+                        (cbByKey['Monopulse'] || []).forEach(cb => {
+                            if (cb !== childCb && cb.dataset.groupChild) {
+                                const otherParentKey = cb.dataset.groupChild;
+                                (cbByKey[otherParentKey] || []).forEach(pcb => {
+                                    pcb.checked = true;
+                                });
+                            }
+                        });
+                    }
                 });
             }
+
+            // Слушатель на заголовочный чекбокс
+            meta.parentCb.addEventListener('change', () => {
+                if (!meta.parentCb.checked) {
+                    // Правило 2: снять все дочерние
+                    meta.childCbs.forEach(cb => {
+                        cb.checked = false;
+                        syncKey(cb.value, false, cb);
+                    });
+                }
+                syncKey(meta.parentKey, meta.parentCb.checked, meta.parentCb);
+            });
         }
     }
 
@@ -379,7 +433,8 @@ document.addEventListener('DOMContentLoaded', () => {
             hardwareId: formData.get('hardwareId'),
             issueDate: formData.get('issueDate'),
             expiredDate: formData.get('expiredDate'),
-            modules: formData.getAll('modules') // gets all checked values containing 'modules' name
+            // Deduplicate: Monopulse appears in both groups but must be sent once
+            modules: [...new Set(formData.getAll('modules'))]
         };
 
         try {
