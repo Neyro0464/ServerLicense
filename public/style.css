@@ -1034,3 +1034,57 @@ color: rgba(148, 163, 184, 0.4);
 .module-child-label input:checked~.checkmark::after {
     display: block;
 }
+
+/* ─── Modal Overlay ──────────────────────────────────────────────────────── */
+.modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    overflow-y: auto;
+    padding: 2rem;
+    animation: fadeIn 0.2s ease;
+}
+
+.modal .modal-content {
+    animation: slideUp 0.3s ease-out;
+}
+
+/* ─── Contacts Editor ────────────────────────────────────────────────────── */
+.contacts-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.contact-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.contact-row input[type="text"] {
+    flex: 1;
+    padding: 0.6rem 0.75rem;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 8px;
+    color: var(--text-main);
+    font-family: inherit;
+    font-size: 0.9rem;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.contact-row input[type="text"]:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--input-focus);
+}
+
+.contact-row input[type="text"]::placeholder {
+    color: rgba(148, 163, 184, 0.4);
+}

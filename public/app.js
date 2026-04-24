@@ -11,6 +11,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const logoutBtn = document.getElementById('logoutBtn');
 
     let currentUserRole = '';
+    let allConfigsData = [];  // cached configurations
+    let allModulesData = [];  // cached modules from API
 
     // ─── Единый показ ошибок ─────────────────────────────────────────────────
     function showError(msg) {
@@ -31,11 +33,14 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             const data = await res.json();
             currentUserRole = data.role;
-            const isJuniorOrAbove = ['junior_manager', 'senior_manager', 'director', 'admin'].includes(currentUserRole);
+            const isJuniorOrAbove = ['junior_manager', 'senior_manager', 'admin'].includes(currentUserRole);
             if (!isJuniorOrAbove && document.getElementById('openAddCompanyBtn')) {
                 document.getElementById('openAddCompanyBtn').classList.add('hidden');
             }
-
+            // Show config add button only for admin
+            if (currentUserRole === 'admin' && document.getElementById('openAddConfigBtn')) {
+                document.getElementById('openAddConfigBtn').classList.remove('hidden');
+            }
         }
     });
 
@@ -92,214 +97,158 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     loadCompanies();
 
-    // ─── Modules Tree ─────────────────────────────────────────────────────────
+    // ─── Modules Tree (dynamic from DB) ────────────────────────────────────────
 
     const modulesContainer = document.getElementById('modulesContainer');
+    const modulesBlock = document.getElementById('modulesBlock');
+    const systemConfigSelect = document.getElementById('systemConfig');
 
     /**
-     * Жёсткая структура двух групп модулей.
-     *
-     * Группа "SDR_receiver":
-     *   [x] SDR_receiver   ← заголовок (родительский модуль)
-     *       [x] SDR_analisis
-     *       [x] Monopulse   ← связан с Monopulse в группе Tracking
-     *
-     * Группа "Tracking":
-     *   [x] Tracking        ← заголовок (родительский модуль)
-     *       [x] Monopulse   ← связан с Monopulse в группе SDR_receiver
-     *       [x] TLE
-     *
-     * Правила привязки:
-     *  1. При выборе любого дочернего модуля автоматически выбирается заголовок его группы.
-     *  2. При снятии заголовка снимаются все дочерние модули его группы.
-     *  3. Моноимпульсный (Monopulse) синхронизируется в обоих группах:
-     *     выбор/снятие в одной группе — автоматически повторяется в другой.
+     * Builds module tree dynamically from API data.
+     * Parent modules (parentModule === '') become group headers.
+     * Child modules are nested under their parent.
+     * Only modules in allowedNames are shown.
      */
-    function renderModuleTree(availableModuleNames) {
+    function renderModuleTree(moduleRecords, allowedNames) {
         modulesContainer.innerHTML = '';
+        const allowed = new Set(allowedNames);
+        const filtered = moduleRecords.filter(m => allowed.has(m.moduleName));
 
-        // Жёсткое описание дерева
-        const TREE = [
-            {
-                parentKey: 'SDR_receiver',
-                parentLabel: 'SDR_приёмник',
-                children: [
-                    { key: 'SDR_analisis', label: 'Анализатор спектра' },
-                    { key: 'Monopulse',    label: 'Моноимпульсный' }
-                ]
-            },
-            {
-                parentKey: 'Tracking',
-                parentLabel: 'Трэкинг',
-                children: [
-                    { key: 'Monopulse', label: 'Моноимпульсный' },
-                    { key: 'TLE',       label: 'TLE' }
-                ]
-            }
-        ];
+        // Separate parents and children
+        const parents = filtered.filter(m => !m.parentModule);
+        const childrenMap = {};
+        filtered.filter(m => m.parentModule).forEach(m => {
+            if (!childrenMap[m.parentModule]) childrenMap[m.parentModule] = [];
+            childrenMap[m.parentModule].push(m);
+        });
 
-        // Фильтруем только те модули, которые реально есть в БД
-        const available = new Set(availableModuleNames);
-
-        // Словарь: key → массив всех checkbox-ов с таким value (для синхронизации Monopulse)
         const cbByKey = {};
-
         const registerCb = (key, cb) => {
             if (!cbByKey[key]) cbByKey[key] = [];
             cbByKey[key].push(cb);
         };
+        const groupMeta = [];
 
-        // Сначала создаём все элементы, потом навешиваем слушатели
-        const groupMeta = []; // { parentCb, childCbs }
-
-        for (const group of TREE) {
-            // Пропускаем группу если родитель отсутствует в БД
-            if (!available.has(group.parentKey)) continue;
-
+        for (const parent of parents) {
             const groupEl = document.createElement('div');
             groupEl.className = 'module-group';
 
-            // ── Заголовочная строка ──────────────────────────────────────
+            // Header
             const headerRow = document.createElement('div');
             headerRow.className = 'module-group-header-row';
-
             const headerLabel = document.createElement('label');
             headerLabel.className = 'module-group-header';
-
             const headerCb = document.createElement('input');
-            headerCb.type = 'checkbox';
-            headerCb.className = 'module-header-cb';
-            headerCb.name = 'modules';
-            headerCb.value = group.parentKey;
-            headerCb.dataset.groupParent = group.parentKey;
-
-            const headerMark = document.createElement('span');
-            headerMark.className = 'checkmark';
-
+            headerCb.type = 'checkbox'; headerCb.className = 'module-header-cb';
+            headerCb.name = 'modules'; headerCb.value = parent.moduleName;
+            headerCb.dataset.groupParent = parent.moduleName;
+            const headerMark = document.createElement('span'); headerMark.className = 'checkmark';
             const headerText = document.createElement('span');
-            headerText.textContent = group.parentLabel;
-
-            headerLabel.appendChild(headerCb);
-            headerLabel.appendChild(headerMark);
-            headerLabel.appendChild(headerText);
+            headerText.textContent = parent.displayLabel || parent.moduleName;
+            headerLabel.append(headerCb, headerMark, headerText);
             headerRow.appendChild(headerLabel);
             groupEl.appendChild(headerRow);
+            registerCb(parent.moduleName, headerCb);
 
-            registerCb(group.parentKey, headerCb);
-
-            // ── Дочерние модули ──────────────────────────────────────────
+            // Children
             const childrenEl = document.createElement('div');
             childrenEl.className = 'module-group-children';
             const childCbs = [];
-
-            for (const child of group.children) {
-                if (!available.has(child.key)) continue;
-
-                const childRow = document.createElement('div');
-                childRow.className = 'module-child';
-
+            for (const child of (childrenMap[parent.moduleName] || [])) {
+                const childRow = document.createElement('div'); childRow.className = 'module-child';
                 const childLabel = document.createElement('label');
                 childLabel.className = 'module-checkbox module-child-label';
-
                 const childCb = document.createElement('input');
-                childCb.type = 'checkbox';
-                childCb.name = 'modules';
-                childCb.value = child.key;
-                childCb.dataset.groupChild = group.parentKey;
-
-                const childMark = document.createElement('span');
-                childMark.className = 'checkmark';
-
+                childCb.type = 'checkbox'; childCb.name = 'modules'; childCb.value = child.moduleName;
+                childCb.dataset.groupChild = parent.moduleName;
+                const childMark = document.createElement('span'); childMark.className = 'checkmark';
                 const childText = document.createElement('span');
-                childText.textContent = child.label;
-
-                childLabel.appendChild(childCb);
-                childLabel.appendChild(childMark);
-                childLabel.appendChild(childText);
+                childText.textContent = child.displayLabel || child.moduleName;
+                childLabel.append(childCb, childMark, childText);
                 childRow.appendChild(childLabel);
                 childrenEl.appendChild(childRow);
                 childCbs.push(childCb);
-
-                registerCb(child.key, childCb);
+                registerCb(child.moduleName, childCb);
             }
-
             groupEl.appendChild(childrenEl);
             modulesContainer.appendChild(groupEl);
-
-            groupMeta.push({ parentKey: group.parentKey, parentCb: headerCb, childCbs });
+            groupMeta.push({ parentKey: parent.moduleName, parentCb: headerCb, childCbs });
         }
 
         if (!groupMeta.length) {
-            modulesContainer.innerHTML =
-                '<p style="color:var(--text-muted);font-size:0.9rem;padding:0.5rem">Нет доступных модулей.</p>';
+            modulesContainer.innerHTML = '<p style="color:var(--text-muted);font-size:0.9rem;padding:0.5rem">Нет доступных модулей для этой конфигурации.</p>';
             return;
         }
 
-        // ── Навешиваем слушатели после построения DOM ────────────────────
-
-        // Вспомогательная: синхронизировать все cb с одинаковым key (cross-group)
+        // Sync logic (same as before)
         const syncKey = (key, checked, originCb) => {
-            (cbByKey[key] || []).forEach(cb => {
-                if (cb !== originCb) cb.checked = checked;
-            });
+            (cbByKey[key] || []).forEach(cb => { if (cb !== originCb) cb.checked = checked; });
         };
 
-        // Правило 1: дочерний выбран → заголовок выбирается автоматически
-        // Правило 2: заголовок снят  → все дочерние снимаются
-        // Правило 3: Monopulse синхронизируется между группами
         for (const meta of groupMeta) {
-            // Слушатель на каждый дочерний чекбокс
             for (const childCb of meta.childCbs) {
                 childCb.addEventListener('change', () => {
                     if (childCb.checked) {
-                        // Правило 1: включить заголовок
                         meta.parentCb.checked = true;
                         syncKey(meta.parentKey, true, meta.parentCb);
                     }
-                    // Правило 3: синхронизация cross-group
                     syncKey(childCb.value, childCb.checked, childCb);
-
-                    // Если это Monopulse и он включён — включаем заголовок в другой группе тоже
                     if (childCb.value === 'Monopulse' && childCb.checked) {
                         (cbByKey['Monopulse'] || []).forEach(cb => {
                             if (cb !== childCb && cb.dataset.groupChild) {
                                 const otherParentKey = cb.dataset.groupChild;
-                                (cbByKey[otherParentKey] || []).forEach(pcb => {
-                                    pcb.checked = true;
-                                });
+                                (cbByKey[otherParentKey] || []).forEach(pcb => { pcb.checked = true; });
                             }
                         });
                     }
                 });
             }
-
-            // Слушатель на заголовочный чекбокс
             meta.parentCb.addEventListener('change', () => {
                 if (!meta.parentCb.checked) {
-                    // Правило 2: снять все дочерние
-                    meta.childCbs.forEach(cb => {
-                        cb.checked = false;
-                        syncKey(cb.value, false, cb);
-                    });
+                    meta.childCbs.forEach(cb => { cb.checked = false; syncKey(cb.value, false, cb); });
                 }
                 syncKey(meta.parentKey, meta.parentCb.checked, meta.parentCb);
             });
         }
     }
 
-    async function loadModules() {
+    // Load modules + configurations
+    async function loadModulesAndConfigs() {
         try {
-            const res = await fetch('/api/modules');
-            if (!res.ok) throw new Error('Не удалось загрузить список модулей');
-            const names = await res.json();
-            renderModuleTree(names);
+            // Load modules
+            const modRes = await fetch('/api/modules');
+            if (!modRes.ok) throw new Error('Не удалось загрузить модули');
+            allModulesData = await modRes.json();
+
+            // Load configurations
+            const cfgRes = await fetch('/api/configurations');
+            if (!cfgRes.ok) throw new Error('Не удалось загрузить конфигурации');
+            allConfigsData = await cfgRes.json();
+
+            // Populate config select
+            systemConfigSelect.innerHTML = '<option value="" disabled selected>Выберите конфигурацию...</option>';
+            allConfigsData.forEach(cfg => {
+                const opt = document.createElement('option');
+                opt.value = cfg.configId;
+                opt.textContent = cfg.configName;
+                systemConfigSelect.appendChild(opt);
+            });
         } catch (e) {
-            modulesContainer.innerHTML =
-                `<p style="color:var(--error);font-size:0.9rem;padding:0.5rem">${e.message}</p>`;
-            console.error('loadModules error:', e);
+            console.error('loadModulesAndConfigs error:', e);
         }
     }
-    loadModules();
+    loadModulesAndConfigs();
+
+    // When config changes, show only allowed modules and reset checkboxes
+    systemConfigSelect.addEventListener('change', () => {
+        const selectedId = parseInt(systemConfigSelect.value);
+        const cfg = allConfigsData.find(c => c.configId === selectedId);
+        if (!cfg) return;
+
+        modulesBlock.style.display = '';
+        renderModuleTree(allModulesData, cfg.modules || []);
+    });
+
 
     // Modal logic
     const addCompanyModal = document.getElementById('addCompanyModal');
@@ -397,9 +346,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const issueDateVal = generateForm.elements['issueDate'].value.trim();
         const expiredDateVal = generateForm.elements['expiredDate'].value.trim();
         const modulesChecked = generateForm.querySelectorAll('input[name="modules"]:checked').length > 0;
+        const configVal = systemConfigSelect ? systemConfigSelect.value : '1';
 
         if (!companyVal) {
             showError('Пожалуйста, выберите компанию из списка.');
+            return;
+        }
+        if (!configVal) {
+            showError('Пожалуйста, выберите конфигурацию системы.');
             return;
         }
         if (!hwVal) {
@@ -414,6 +368,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showError('Пожалуйста, укажите дату окончания.');
             return;
         }
+
         if (!modulesChecked) {
             showError('Пожалуйста, выберите предоставляемые модули.');
             return;
@@ -518,10 +473,77 @@ document.addEventListener('DOMContentLoaded', () => {
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(currentLicenseData, null, 4));
             const downloadAnchorNode = document.createElement('a');
             downloadAnchorNode.setAttribute("href", dataStr);
-            downloadAnchorNode.setAttribute("download", "license_" + currentLicenseData.licenseDesc.company.replace(/[^a-z0-9]/gi, '_').toLowerCase() + ".json");
+            downloadAnchorNode.setAttribute("download", "license_" + currentLicenseData.licenseDesc.company.replace(/[^a-z0-9а-яё]+/gi, '_').toLowerCase() + ".json");
             document.body.appendChild(downloadAnchorNode);
             downloadAnchorNode.click();
             downloadAnchorNode.remove();
         });
     }
+
+    // ─── Add Configuration Modal (from generation page) ──────────────────────
+    const cfgModalGen = document.getElementById('addConfigModalGen');
+    const openCfgBtn = document.getElementById('openAddConfigBtn');
+    if (cfgModalGen && openCfgBtn) {
+        function renderGenConfigModules() {
+            const cont = document.getElementById('genConfigModuleList');
+            if (!cont) return;
+            cont.innerHTML = '';
+            for (const mod of allModulesData) {
+                const lbl = document.createElement('label');
+                lbl.style.cssText = 'display:flex;align-items:center;gap:0.5rem;font-size:0.9rem;cursor:pointer;color:var(--text-main)';
+                const cb = document.createElement('input');
+                cb.type = 'checkbox'; cb.value = mod.moduleName;
+                cb.style.cssText = 'accent-color:var(--primary);width:16px;height:16px;cursor:pointer';
+                const sp = document.createElement('span');
+                sp.textContent = (mod.displayLabel || mod.moduleName) + (mod.parentModule ? ` (→ ${mod.parentModule})` : ' [группа]');
+                lbl.append(cb, sp);
+                cont.appendChild(lbl);
+            }
+            if (!allModulesData.length) cont.innerHTML = '<span style="color:var(--text-muted)">Модули не загружены</span>';
+        }
+
+        openCfgBtn.addEventListener('click', () => {
+            document.getElementById('newConfigName').value = '';
+            document.getElementById('newConfigDesc').value = '';
+            document.getElementById('configErrorGen').classList.add('hidden');
+            renderGenConfigModules();
+            cfgModalGen.classList.remove('hidden');
+        });
+        document.getElementById('closeConfigModalGen').addEventListener('click', () => cfgModalGen.classList.add('hidden'));
+        window.addEventListener('click', e => { if (e.target === cfgModalGen) cfgModalGen.classList.add('hidden'); });
+
+        document.getElementById('addConfigFormGen').addEventListener('submit', async e => {
+            e.preventDefault();
+            const errBox = document.getElementById('configErrorGen');
+            const errMsg = document.getElementById('configErrorMessageGen');
+            errBox.classList.add('hidden');
+            const btn = document.getElementById('addConfigSubmitBtnGen');
+            btn.disabled = true; btn.textContent = 'Добавление...';
+
+            const cont = document.getElementById('genConfigModuleList');
+            const selectedMods = [...cont.querySelectorAll('input[type=checkbox]:checked')].map(c => c.value);
+
+            try {
+                const r = await fetch('/api/configurations', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        configName: document.getElementById('newConfigName').value.trim(),
+                        description: document.getElementById('newConfigDesc').value.trim(),
+                        modules: selectedMods
+                    })
+                });
+                if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Ошибка'); }
+                cfgModalGen.classList.add('hidden');
+                // Reload configs
+                await loadModulesAndConfigs();
+            } catch(err) {
+                errMsg.textContent = err.message;
+                errBox.classList.remove('hidden');
+            } finally {
+                btn.disabled = false; btn.textContent = 'Добавить конфигурацию';
+            }
+        });
+    }
 });
+

@@ -8,7 +8,7 @@ void EmployeeController::addEmployee(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
 
-  if (req->session()->get<std::string>("role") != "admin" && req->session()->get<std::string>("role") != "director") {
+  if (req->session()->get<std::string>("role") != "admin") {
     auto res = HttpResponse::newHttpResponse();
     res->setStatusCode(k403Forbidden);
     callback(res);
@@ -70,7 +70,7 @@ void EmployeeController::addEmployee(
 void EmployeeController::getEmployees(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
-  if (req->session()->get<std::string>("role") != "admin" && req->session()->get<std::string>("role") != "director") {
+  if (req->session()->get<std::string>("role") != "admin") {
     auto res = HttpResponse::newHttpResponse();
     res->setStatusCode(k403Forbidden);
     callback(res);
@@ -108,7 +108,7 @@ void EmployeeController::updateEmployee(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback,
     std::string employeeId) {
-  if (req->session()->get<std::string>("role") != "admin" && req->session()->get<std::string>("role") != "director") {
+  if (req->session()->get<std::string>("role") != "admin") {
     auto res = HttpResponse::newHttpResponse();
     res->setStatusCode(k403Forbidden);
     callback(res);
@@ -167,7 +167,7 @@ void EmployeeController::deleteEmployee(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback,
     std::string employeeId) {
-  if (req->session()->get<std::string>("role") != "admin" && req->session()->get<std::string>("role") != "director") {
+  if (req->session()->get<std::string>("role") != "admin") {
     auto res = HttpResponse::newHttpResponse();
     res->setStatusCode(k403Forbidden);
     callback(res);

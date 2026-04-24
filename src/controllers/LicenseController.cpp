@@ -205,7 +205,7 @@ void LicenseController::deleteLicense(
     std::function<void(const HttpResponsePtr &)> &&callback, std::string id) {
 
   std::string role = req->session()->get<std::string>("role");
-  if (role != "director") {
+  if (role != "admin") {
     Json::Value error;
     error["error"] = "Недостаточно прав для удаления лицензии.";
     auto resp = HttpResponse::newHttpJsonResponse(error);
@@ -240,11 +240,16 @@ void LicenseController::getModules(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
   try {
-    QStringList modules = DatabaseController::instance().getAllModules();
+    QVector<ModuleRecord> modules = DatabaseController::instance().getAllModules();
 
     Json::Value responseJson(Json::arrayValue);
     for (const auto &mod : modules) {
-      responseJson.append(mod.toStdString());
+      Json::Value item;
+      item["moduleName"]   = mod.moduleName.toStdString();
+      item["displayLabel"] = mod.displayLabel.toStdString();
+      item["parentModule"] = mod.parentModule.toStdString();
+      item["sortOrder"]    = mod.sortOrder;
+      responseJson.append(item);
     }
 
     auto resp = HttpResponse::newHttpJsonResponse(responseJson);

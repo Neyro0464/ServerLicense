@@ -616,23 +616,147 @@ bool DatabaseController::deleteCompany(const QString &companyName) {
   return query.exec();
 }
 
-QStringList DatabaseController::getAllModules() const {
-  QStringList modules;
+QVector<ModuleRecord> DatabaseController::getAllModules() const {
+  QVector<ModuleRecord> modules;
   QSqlDatabase db = getConnection();
   if (!db.isOpen())
     return modules;
 
   QSqlQuery query(db);
-  if (!query.exec("SELECT module_name FROM modules ORDER BY module_name")) {
+  if (!query.exec("SELECT module_name, COALESCE(display_label, module_name), "
+                  "COALESCE(parent_module, ''), COALESCE(sort_order, 0) "
+                  "FROM modules ORDER BY COALESCE(sort_order, 0), module_name")) {
     qCritical() << "[DatabaseController] getAllModules failed:"
                 << query.lastError().text();
     return modules;
   }
 
   while (query.next()) {
-    modules.append(query.value(0).toString());
+    ModuleRecord rec;
+    rec.moduleName   = query.value(0).toString();
+    rec.displayLabel = query.value(1).toString();
+    rec.parentModule = query.value(2).toString();
+    rec.sortOrder    = query.value(3).toInt();
+    modules.append(rec);
   }
   return modules;
+}
+
+QVector<ConfigurationRecord> DatabaseController::getAllConfigurations() const {
+  QVector<ConfigurationRecord> configs;
+  QSqlDatabase db = getConnection();
+  if (!db.isOpen()) return configs;
+
+  QSqlQuery query(db);
+  if (!query.exec("SELECT sc.config_id, sc.config_name, COALESCE(sc.description, ''), "
+                  "COALESCE(string_agg(cm.module_name, ','), '') "
+                  "FROM system_configurations sc "
+                  "LEFT JOIN configuration_modules cm ON sc.config_id = cm.config_id "
+                  "GROUP BY sc.config_id, sc.config_name, sc.description "
+                  "ORDER BY sc.config_id")) {
+    qCritical() << "[DatabaseController] getAllConfigurations failed:"
+                << query.lastError().text();
+    return configs;
+  }
+
+  while (query.next()) {
+    ConfigurationRecord rec;
+    rec.configId    = query.value(0).toInt();
+    rec.configName  = query.value(1).toString();
+    rec.description = query.value(2).toString();
+    QString mods    = query.value(3).toString();
+    if (!mods.isEmpty()) {
+      for (const QString &m : mods.split(',', Qt::SkipEmptyParts))
+        rec.modules.append(m.trimmed());
+    }
+    configs.append(rec);
+  }
+  return configs;
+}
+
+bool DatabaseController::addConfiguration(const QString &name, const QString &description, const QStringList &modules) {
+  QSqlDatabase db = getConnection();
+  if (!db.isOpen()) return false;
+
+  db.transaction();
+
+  QSqlQuery insQuery(db);
+  insQuery.prepare("INSERT INTO system_configurations (config_name, description) "
+                   "VALUES (:name, :desc) RETURNING config_id");
+  insQuery.bindValue(":name", name);
+  insQuery.bindValue(":desc", description);
+  if (!insQuery.exec() || !insQuery.next()) {
+    qCritical() << "[DatabaseController] addConfiguration insert failed:"
+                << insQuery.lastError().text();
+    db.rollback();
+    return false;
+  }
+  int configId = insQuery.value(0).toInt();
+
+  for (const QString &mod : modules) {
+    QSqlQuery lnk(db);
+    lnk.prepare("INSERT INTO configuration_modules (config_id, module_name) VALUES (:cid, :mod) ON CONFLICT DO NOTHING");
+    lnk.bindValue(":cid", configId);
+    lnk.bindValue(":mod", mod.trimmed());
+    if (!lnk.exec()) {
+      db.rollback();
+      return false;
+    }
+  }
+
+  db.commit();
+  return true;
+}
+
+bool DatabaseController::updateConfiguration(int configId, const QString &name, const QString &description, const QStringList &modules) {
+  QSqlDatabase db = getConnection();
+  if (!db.isOpen()) return false;
+
+  db.transaction();
+
+  QSqlQuery updQuery(db);
+  updQuery.prepare("UPDATE system_configurations SET config_name = :name, description = :desc WHERE config_id = :id");
+  updQuery.bindValue(":name", name);
+  updQuery.bindValue(":desc", description);
+  updQuery.bindValue(":id",   configId);
+  if (!updQuery.exec()) {
+    db.rollback();
+    return false;
+  }
+
+  // Replace module links
+  QSqlQuery delLinks(db);
+  delLinks.prepare("DELETE FROM configuration_modules WHERE config_id = :id");
+  delLinks.bindValue(":id", configId);
+  if (!delLinks.exec()) {
+    db.rollback();
+    return false;
+  }
+
+  for (const QString &mod : modules) {
+    QSqlQuery lnk(db);
+    lnk.prepare("INSERT INTO configuration_modules (config_id, module_name) VALUES (:cid, :mod) ON CONFLICT DO NOTHING");
+    lnk.bindValue(":cid", configId);
+    lnk.bindValue(":mod", mod.trimmed());
+    if (!lnk.exec()) {
+      db.rollback();
+      return false;
+    }
+  }
+
+  db.commit();
+  return true;
+}
+
+bool DatabaseController::deleteConfiguration(int configId) {
+  QSqlDatabase db = getConnection();
+  if (!db.isOpen()) return false;
+
+  // CASCADE will remove configuration_modules rows automatically
+  QSqlQuery query(db);
+  query.prepare("DELETE FROM system_configurations WHERE config_id = :id");
+  query.bindValue(":id", configId);
+  return query.exec() && query.numRowsAffected() > 0;
 }
 
 void DatabaseController::cleanupOldLogs(int days) {

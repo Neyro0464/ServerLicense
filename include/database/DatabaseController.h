@@ -11,6 +11,20 @@
 struct LicenseRecord;
 class QtDBMigration;
 
+struct ModuleRecord {
+  QString moduleName;
+  QString displayLabel;  // Russian name (display_label)
+  QString parentModule;  // parent_module_name or empty if root
+  int     sortOrder = 0;
+};
+
+struct ConfigurationRecord {
+  int     configId = 0;
+  QString configName;
+  QString description;
+  QStringList modules; // list of module_name values
+};
+
 struct EmployeeRecord {
   QString employeeId;
   QString login;
@@ -70,7 +84,14 @@ public:
   bool updateCompany(const QString &companyName, const CompanyRecord &company);
   bool deleteCompany(const QString &companyName);
 
-  QStringList getAllModules() const;
+  // Modules (with hierarchy info)
+  QVector<ModuleRecord> getAllModules() const;
+
+  // System Configurations
+  QVector<ConfigurationRecord> getAllConfigurations() const;
+  bool addConfiguration(const QString &name, const QString &description, const QStringList &modules);
+  bool updateConfiguration(int configId, const QString &name, const QString &description, const QStringList &modules);
+  bool deleteConfiguration(int configId);
 
   void cleanupOldLogs(int days);
 

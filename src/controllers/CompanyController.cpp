@@ -127,9 +127,9 @@ void CompanyController::updateCompany(
 
   try {
     std::string role = req->session()->get<std::string>("role");
-    if (role == "junior_manager") {
+    if (role == "junior_manager" || role == "senior_manager") {
       Json::Value error;
-      error["error"] = "Доступ запрещён: младший менеджер не может редактировать компании.";
+      error["error"] = "Доступ запрещён: недостаточно прав для редактирования компаний.";
       auto resp = HttpResponse::newHttpJsonResponse(error);
       resp->setStatusCode(k403Forbidden);
       callback(resp);
@@ -199,9 +199,9 @@ void CompanyController::deleteCompany(
 
   try {
     std::string role = req->session()->get<std::string>("role");
-    if (role == "junior_manager") {
+    if (role == "junior_manager" || role == "senior_manager") {
       Json::Value error;
-      error["error"] = "Доступ запрещён: младший менеджер не может удалять компании.";
+      error["error"] = "Доступ запрещён: недостаточно прав для удаления компаний.";
       auto resp = HttpResponse::newHttpJsonResponse(error);
       resp->setStatusCode(k403Forbidden);
       callback(resp);

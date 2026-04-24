@@ -16,9 +16,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const employeeStore = new Map(); // employeeId -> record
 
     // ─── ROLE HELPERS ───────────────────────────────────────────────────────────
-    const isManager = () => ['senior_manager', 'director', 'admin'].includes(currentUserRole);
-    const isJuniorOrAbove = () => ['junior_manager', 'senior_manager', 'director', 'admin'].includes(currentUserRole);
-    const isDirector = () => ['director', 'admin'].includes(currentUserRole);
+    const isAdmin = () => currentUserRole === 'admin';
+    const isManager = () => ['senior_manager', 'admin'].includes(currentUserRole);
+    const isJuniorOrAbove = () => ['junior_manager', 'senior_manager', 'admin'].includes(currentUserRole);
 
 
     // ─── LOGOUT ─────────────────────────────────────────────────────────────────
@@ -75,8 +75,9 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             // Show/hide tabs
-            if (isDirector()) {
+            if (isAdmin()) {
                 document.getElementById('tabEmployees').classList.remove('hidden');
+                document.getElementById('tabConfigurations').classList.remove('hidden');
             }
 
             // Show/hide manager-only action columns & buttons
@@ -97,6 +98,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let licensesLoaded = false;
     let companiesLoaded = false;
     let employeesLoaded = false;
+    let configurationsLoaded = false;
+    let allModulesCache = []; // cached modules for config editing
 
     document.querySelectorAll('.db-tab').forEach(tab => {
         tab.addEventListener('click', () => {
@@ -110,6 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (name === 'licenses' && !licensesLoaded) loadLicenses();
             if (name === 'companies' && !companiesLoaded) loadCompanies();
             if (name === 'employees' && !employeesLoaded) loadEmployees();
+            if (name === 'configurations' && !configurationsLoaded) loadConfigurations();
         });
     });
 
@@ -144,19 +148,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const ROLE_LABELS = {
         'junior_manager': 'Junior Manager',
         'senior_manager': 'Senior Manager',
-        'director': 'Director',
-        'admin': 'Director'
+        'admin': 'Administrator'
     };
     const ROLE_COLORS = {
         'junior_manager': 'rgba(99,102,241,0.15)',
         'senior_manager': 'rgba(245,158,11,0.15)',
-        'director': 'rgba(139,92,246,0.2)',
         'admin': 'rgba(139,92,246,0.2)'
     };
     const ROLE_TEXT_COLORS = {
         'junior_manager': '#818cf8',
         'senior_manager': '#fbbf24',
-        'director': '#c4b5fd',
         'admin': '#c4b5fd'
     };
 
@@ -219,6 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const actionsHtml = `<td><div style="display:flex;gap:0.5rem;align-items:center;">
                 <button class="action-btn" onclick="window.__downloadLicense('${lic.id}')" style="background:var(--primary);color:#fff;border-color:transparent;" title="Скачать JSON">💾</button>
+                ${isAdmin() ? `<button class="action-btn action-btn--hwid" onclick="window.__downloadHwId('${lic.id}')" title="Скачать Hardware ID (.bin)">💻</button>` : ''}
                 ${isManager() ? `<button class="action-btn action-btn--delete" onclick="window.__deleteLicense('${lic.id}')">🗑️</button>` : ''}
             </div></td>`;
 
@@ -290,10 +292,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataObj, null, 4));
                 const anchor = document.createElement('a');
                 anchor.setAttribute("href", dataStr);
-                anchor.setAttribute("download", "license_" + lic.companyName.replace(/[^a-z0-9а-яё]/gi, '_').toLowerCase() + ".json");
+                anchor.setAttribute("download", "license_" + lic.companyName.replace(/[^a-z0-9а-яё]+/gi, '_').toLowerCase() + ".json");
                 document.body.appendChild(anchor);
                 anchor.click();
                 anchor.remove();
+            };
+
+            window.__downloadHwId = (id) => {
+                const lic = allLicensesData.find(l => String(l.id) === String(id));
+                if (!lic || !lic.hardwareId) return;
+                const bytes = new TextEncoder().encode(lic.hardwareId);
+                const blob = new Blob([bytes], { type: 'application/octet-stream' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'hardware_id_' + lic.companyName.replace(/[^a-z0-9а-яё]+/gi, '_').toLowerCase() + '.bin';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
             };
 
         } catch(err) {
@@ -519,7 +536,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.getElementById('editEmployeeId').value = emp.employeeId;
                     document.getElementById('editEmpLogin').value = emp.login;
                     document.getElementById('editEmpPassword').value = '';
-                    document.getElementById('editEmpRole').value = (emp.role === 'admin') ? 'director' : emp.role;
+                    document.getElementById('editEmpRole').value = emp.role;
                     document.getElementById('editEmpFirstName').value = emp.firstName;
                     document.getElementById('editEmpLastName').value = emp.lastName;
                     document.getElementById('editEmpMiddleName').value = emp.middleName || '';
@@ -607,6 +624,204 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.textContent = empId ? 'Сохранить сотрудника' : 'Создать сотрудника';
         }
     });
+
+    // ════════════════════════════════════════════════════════════════════════════
+    //  CONFIGURATIONS
+    // ════════════════════════════════════════════════════════════════════════════
+    const configStore = new Map();
+
+    async function fetchAllModules() {
+        if (allModulesCache.length) return allModulesCache;
+        try {
+            const res = await fetch('/api/modules');
+            if (res.ok) allModulesCache = await res.json();
+        } catch(e) { console.error('fetchAllModules', e); }
+        return allModulesCache;
+    }
+
+    function renderModuleCheckboxes(containerId, selectedModules = []) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        container.innerHTML = '';
+        const selSet = new Set(selectedModules);
+        for (const mod of allModulesCache) {
+            const label = document.createElement('label');
+            label.className = 'module-check-item';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.value = mod.moduleName;
+            cb.checked = selSet.has(mod.moduleName);
+            const span = document.createElement('span');
+            span.textContent = (mod.displayLabel || mod.moduleName) + (mod.parentModule ? ` (→ ${mod.parentModule})` : ' [группа]');
+            label.appendChild(cb);
+            label.appendChild(span);
+            container.appendChild(label);
+        }
+        if (!allModulesCache.length) {
+            container.innerHTML = '<span style="color:var(--text-muted);font-size:0.85rem;">Модули не найдены.</span>';
+        }
+    }
+
+    function readModuleCheckboxes(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return [];
+        return [...container.querySelectorAll('input[type=checkbox]:checked')].map(cb => cb.value);
+    }
+
+    async function loadConfigurations() {
+        const tbody = document.getElementById('configurationsTableBody');
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;"><div class="loader inline-loader" style="margin:0 auto;border-top-color:var(--primary);"></div></td></tr>';
+
+        try {
+            await fetchAllModules();
+            const res = await fetch('/api/configurations');
+            if (!res.ok) throw new Error('Не удалось загрузить конфигурации.');
+            const data = await res.json();
+            configurationsLoaded = true;
+            configStore.clear();
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--text-muted);">Конфигурации не найдены.</td></tr>';
+                return;
+            }
+
+            data.forEach((cfg, idx) => {
+                configStore.set(String(cfg.configId), cfg);
+                const tr = document.createElement('tr');
+                const modulesBadges = cfg.modules && cfg.modules.length
+                    ? cfg.modules.map(m => `<span class="status-badge">${esc(m)}</span>`).join('')
+                    : '<span style="color:var(--text-muted)">—</span>';
+
+                tr.innerHTML = `
+                    <td style="font-weight:500;color:#c4b5fd;">${idx + 1}</td>
+                    <td style="font-weight:600;color:#fff;">${esc(cfg.configName)}</td>
+                    <td style="color:var(--text-muted);">${esc(cfg.description || '—')}</td>
+                    <td><div class="config-modules-cell">${modulesBadges}</div></td>
+                    <td><div style="display:flex;gap:0.5rem;">
+                        <button class="action-btn action-btn--edit" data-action="edit-config" data-key="${cfg.configId}">✏️ Редактировать</button>
+                        <button class="action-btn action-btn--delete" data-action="delete-config" data-key="${cfg.configId}" data-name="${esc(cfg.configName)}">🗑️ Удалить</button>
+                    </div></td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            tbody.addEventListener('click', (e) => {
+                const btn = e.target.closest('[data-action]');
+                if (!btn) return;
+                const key = btn.dataset.key;
+                const action = btn.dataset.action;
+
+                if (action === 'edit-config') {
+                    const cfg = configStore.get(key);
+                    if (!cfg) return;
+                    document.getElementById('editConfigId').value = cfg.configId;
+                    document.getElementById('editConfigName').value = cfg.configName;
+                    document.getElementById('editConfigDesc').value = cfg.description || '';
+                    renderModuleCheckboxes('editConfigModuleList', cfg.modules || []);
+                    hideFormError('editConfigError');
+                    document.getElementById('editConfigModal').classList.remove('hidden');
+                }
+
+                if (action === 'delete-config') {
+                    const name = btn.dataset.name;
+                    showConfirmDelete(`Удалить конфигурацию "${name}"?`, async () => {
+                        try {
+                            const r = await fetch(`/api/configurations/${key}`, { method: 'DELETE' });
+                            if (!r.ok) throw new Error(await safeDeleteError(r, 'Не удалось удалить конфигурацию.'));
+                            configurationsLoaded = false;
+                            loadConfigurations();
+                        } catch(e2) { showError(e2.message); }
+                    });
+                }
+            });
+
+        } catch(err) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--error);">Ошибка при загрузке конфигураций.</td></tr>';
+            showError(err.message);
+        }
+    }
+
+    // Add configuration modal
+    const addConfigModal = document.getElementById('addConfigModal');
+    if (addConfigModal) {
+        document.getElementById('addConfigDbBtn').addEventListener('click', async () => {
+            document.getElementById('addConfigName').value = '';
+            document.getElementById('addConfigDesc').value = '';
+            await fetchAllModules();
+            renderModuleCheckboxes('addConfigModuleList', []);
+            hideFormError('addConfigError');
+            addConfigModal.classList.remove('hidden');
+        });
+        document.getElementById('closeAddConfigModal').addEventListener('click', () => addConfigModal.classList.add('hidden'));
+        window.addEventListener('click', e => { if (e.target === addConfigModal) addConfigModal.classList.add('hidden'); });
+
+        document.getElementById('addConfigForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideFormError('addConfigError');
+            const btn = document.getElementById('addConfigSubmitBtn');
+            btn.disabled = true; btn.textContent = 'Добавление...';
+
+            const data = {
+                configName: document.getElementById('addConfigName').value.trim(),
+                description: document.getElementById('addConfigDesc').value.trim(),
+                modules: readModuleCheckboxes('addConfigModuleList')
+            };
+
+            try {
+                const r = await fetch('/api/configurations', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Ошибка добавления конфигурации.'); }
+                addConfigModal.classList.add('hidden');
+                configurationsLoaded = false;
+                loadConfigurations();
+            } catch(err) {
+                showFormError('addConfigErrorMsg', 'addConfigError', err.message);
+            } finally {
+                btn.disabled = false; btn.textContent = 'Добавить конфигурацию';
+            }
+        });
+    }
+
+    // Edit configuration modal
+    const editConfigModal = document.getElementById('editConfigModal');
+    if (editConfigModal) {
+        document.getElementById('closeEditConfigModal').addEventListener('click', () => editConfigModal.classList.add('hidden'));
+        window.addEventListener('click', e => { if (e.target === editConfigModal) editConfigModal.classList.add('hidden'); });
+
+        document.getElementById('editConfigForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideFormError('editConfigError');
+            const btn = document.getElementById('editConfigSubmitBtn');
+            btn.disabled = true; btn.textContent = 'Сохранение...';
+
+            const configId = document.getElementById('editConfigId').value;
+            const data = {
+                configName: document.getElementById('editConfigName').value.trim(),
+                description: document.getElementById('editConfigDesc').value.trim(),
+                modules: readModuleCheckboxes('editConfigModuleList')
+            };
+
+            try {
+                const r = await fetch(`/api/configurations/${configId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Ошибка обновления конфигурации.'); }
+                editConfigModal.classList.add('hidden');
+                configurationsLoaded = false;
+                loadConfigurations();
+            } catch(err) {
+                showFormError('editConfigErrorMsg', 'editConfigError', err.message);
+            } finally {
+                btn.disabled = false; btn.textContent = 'Сохранить изменения';
+            }
+        });
+    }
 
     // ─── UTILITY ─────────────────────────────────────────────────────────────────
     function esc(str) {

@@ -54,6 +54,21 @@
             "version": 10,
             "applySql": "DELETE FROM license_modules WHERE module_name IN ('SDR_reader', 'SDR_writer', 'SDR_exec', 'TLE_reader', 'TLE_writer', 'TLE_exec', 'SDR_analisis', 'TLE_analisis'); DELETE FROM modules WHERE module_name IN ('SDR_reader', 'SDR_writer', 'SDR_exec', 'TLE_reader', 'TLE_writer', 'TLE_exec', 'SDR_analisis', 'TLE_analisis'); INSERT INTO modules (module_name, description) VALUES ('SDR_receiver', 'SDR-приёмник: базовый модуль группы SDR'), ('SDR_analisis', 'Анализатор спектра SDR'), ('Monopulse', 'Моноимпульсный модуль (SDR + Трэкинг)'), ('Tracking', 'Трэкинг: базовый модуль группы Трэкинг'), ('TLE', 'TLE — расчёт орбиты по элементам') ON CONFLICT (module_name) DO NOTHING;",
             "revertSql": "DELETE FROM modules WHERE module_name IN ('SDR_receiver', 'SDR_analisis', 'Monopulse', 'Tracking', 'TLE');"
+        },
+        {
+            "version": 11,
+            "applySql": "CREATE TABLE system_configurations (config_id SERIAL PRIMARY KEY, config_name TEXT UNIQUE NOT NULL, description TEXT); CREATE TABLE configuration_modules (config_id INTEGER REFERENCES system_configurations(config_id) ON DELETE CASCADE, module_name TEXT REFERENCES modules(module_name) ON DELETE CASCADE, PRIMARY KEY (config_id, module_name));",
+            "revertSql": "DROP TABLE IF EXISTS configuration_modules; DROP TABLE IF EXISTS system_configurations;"
+        },
+        {
+            "version": 12,
+            "applySql": "ALTER TABLE modules ADD COLUMN IF NOT EXISTS parent_module TEXT REFERENCES modules(module_name) ON DELETE SET NULL; ALTER TABLE modules ADD COLUMN IF NOT EXISTS display_label TEXT; ALTER TABLE modules ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;",
+            "revertSql": "ALTER TABLE modules DROP COLUMN IF EXISTS parent_module; ALTER TABLE modules DROP COLUMN IF EXISTS display_label; ALTER TABLE modules DROP COLUMN IF EXISTS sort_order;"
+        },
+        {
+            "version": 13,
+            "applySql": "ALTER TABLE accounts DROP CONSTRAINT IF EXISTS accounts_status_name_fkey; INSERT INTO status (name, access_description) VALUES ('admin', 'Full access — Administrator') ON CONFLICT (name) DO NOTHING; UPDATE accounts SET status_name = 'admin' WHERE status_name = 'director'; DELETE FROM status WHERE name = 'director'; ALTER TABLE accounts ADD CONSTRAINT accounts_status_name_fkey FOREIGN KEY (status_name) REFERENCES status(name);",
+            "revertSql": "ALTER TABLE accounts DROP CONSTRAINT IF EXISTS accounts_status_name_fkey; INSERT INTO status (name, access_description) VALUES ('director', 'Full access') ON CONFLICT (name) DO NOTHING; UPDATE accounts SET status_name = 'director' WHERE status_name = 'admin'; DELETE FROM status WHERE name = 'admin'; ALTER TABLE accounts ADD CONSTRAINT accounts_status_name_fkey FOREIGN KEY (status_name) REFERENCES status(name);"
         }
     ]
 }
