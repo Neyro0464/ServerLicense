@@ -78,6 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isAdmin()) {
                 document.getElementById('tabEmployees').classList.remove('hidden');
                 document.getElementById('tabConfigurations').classList.remove('hidden');
+                document.getElementById('tabModules').classList.remove('hidden');
             }
 
             // Show/hide manager-only action columns & buttons
