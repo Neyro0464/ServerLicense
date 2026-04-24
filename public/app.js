@@ -107,21 +107,39 @@ document.addEventListener('DOMContentLoaded', () => {
      * Builds module tree dynamically from API data.
      * Parent modules (parentModule === '') become group headers.
      * Child modules are nested under their parent.
-     * Only modules in allowedNames are shown.
+     * Only modules in allowedNames are shown (including all descendants).
      * Handles: isSelectable, requiresDevice, dependencyGroup, requiredWith
      */
     function renderModuleTree(moduleRecords, allowedNames) {
         modulesContainer.innerHTML = '';
         const allowed = new Set(allowedNames);
+
+        // Recursively add all descendants of allowed modules
+        const addDescendants = (moduleName) => {
+            moduleRecords.forEach(m => {
+                if (m.parentModule === moduleName && !allowed.has(m.moduleName)) {
+                    allowed.add(m.moduleName);
+                    addDescendants(m.moduleName); // Recursively add children
+                }
+            });
+        };
+
+        // Expand allowed set to include all descendants
+        allowedNames.forEach(name => addDescendants(name));
+
         const filtered = moduleRecords.filter(m => allowed.has(m.moduleName));
 
-        // Separate parents and children
-        const parents = filtered.filter(m => !m.parentModule);
+        // Build hierarchy map
         const childrenMap = {};
-        filtered.filter(m => m.parentModule).forEach(m => {
-            if (!childrenMap[m.parentModule]) childrenMap[m.parentModule] = [];
-            childrenMap[m.parentModule].push(m);
+        filtered.forEach(m => {
+            if (m.parentModule) {
+                if (!childrenMap[m.parentModule]) childrenMap[m.parentModule] = [];
+                childrenMap[m.parentModule].push(m);
+            }
         });
+
+        // Find root modules (no parent or parent not in filtered set)
+        const parents = filtered.filter(m => !m.parentModule || !allowed.has(m.parentModule));
 
         const cbByKey = {};
         const moduleByKey = {};
@@ -133,9 +151,11 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         const groupMeta = [];
 
-        for (const parent of parents) {
+        // Recursive function to render module and its children
+        function renderModuleWithChildren(mod, level = 0) {
             const groupEl = document.createElement('div');
             groupEl.className = 'module-group';
+            groupEl.style.marginLeft = (level * 20) + 'px';
 
             // Header
             const headerRow = document.createElement('div');
@@ -143,43 +163,43 @@ document.addEventListener('DOMContentLoaded', () => {
             const headerLabel = document.createElement('label');
             headerLabel.className = 'module-group-header';
 
+            let headerCb = null;
+            const childCbs = [];
+
             // Parent checkbox (or just label if not selectable)
-            if (parent.isSelectable) {
-                const headerCb = document.createElement('input');
+            if (mod.isSelectable) {
+                headerCb = document.createElement('input');
                 headerCb.type = 'checkbox';
                 headerCb.className = 'module-header-cb';
                 headerCb.name = 'modules';
-                headerCb.value = parent.moduleName;
-                headerCb.dataset.groupParent = parent.moduleName;
+                headerCb.value = mod.moduleName;
+                headerCb.dataset.groupParent = mod.moduleName;
                 const headerMark = document.createElement('span');
                 headerMark.className = 'checkmark';
                 const headerText = document.createElement('span');
-                headerText.textContent = parent.displayLabel || parent.moduleName;
-                if (parent.requiresDevice) {
+                headerText.textContent = mod.displayLabel || mod.moduleName;
+                if (mod.requiresDevice) {
                     headerText.textContent += ' 🖥️';
                     headerText.title = 'Требует устройство';
                 }
                 headerLabel.append(headerCb, headerMark, headerText);
-                registerCb(parent.moduleName, headerCb);
-                groupMeta.push({ parentKey: parent.moduleName, parentCb: headerCb, childCbs: [], parentModule: parent });
+                registerCb(mod.moduleName, headerCb);
             } else {
                 // Non-selectable parent (category only)
                 const headerText = document.createElement('span');
-                headerText.textContent = parent.displayLabel || parent.moduleName;
+                headerText.textContent = mod.displayLabel || mod.moduleName;
                 headerText.style.fontWeight = 'bold';
                 headerText.style.color = 'var(--text-muted)';
                 headerLabel.appendChild(headerText);
-                groupMeta.push({ parentKey: parent.moduleName, parentCb: null, childCbs: [], parentModule: parent });
             }
 
             headerRow.appendChild(headerLabel);
             groupEl.appendChild(headerRow);
 
-            // Children
+            // Children container
             const childrenEl = document.createElement('div');
             childrenEl.className = 'module-group-children';
-            const children = (childrenMap[parent.moduleName] || []).sort((a, b) => a.sortOrder - b.sortOrder);
-            const meta = groupMeta[groupMeta.length - 1];
+            const children = (childrenMap[mod.moduleName] || []).sort((a, b) => a.sortOrder - b.sortOrder);
 
             // Group children by dependency group for radio buttons
             const depGroups = {};
@@ -191,7 +211,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             for (const child of children) {
-                if (!child.isSelectable) continue; // Skip non-selectable children
+                if (!child.isSelectable) {
+                    // Non-selectable child - render as nested group
+                    const nestedGroup = renderModuleWithChildren(child, level + 1);
+                    childrenEl.appendChild(nestedGroup);
+                    continue;
+                }
 
                 const childRow = document.createElement('div');
                 childRow.className = 'module-child';
@@ -208,7 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     childCb.name = 'modules';
                 }
                 childCb.value = child.moduleName;
-                childCb.dataset.groupChild = parent.moduleName;
+                childCb.dataset.groupChild = mod.moduleName;
                 if (child.dependencyGroup) childCb.dataset.dependencyGroup = child.dependencyGroup;
                 if (child.requiredWith && child.requiredWith.length > 0) {
                     childCb.dataset.requiredWith = JSON.stringify(child.requiredWith);
@@ -229,11 +254,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 childLabel.append(childCb, childMark, childText);
                 childRow.appendChild(childLabel);
                 childrenEl.appendChild(childRow);
-                meta.childCbs.push(childCb);
+                childCbs.push(childCb);
                 registerCb(child.moduleName, childCb);
             }
 
             groupEl.appendChild(childrenEl);
+            groupMeta.push({ parentKey: mod.moduleName, parentCb: headerCb, childCbs: childCbs, parentModule: mod });
+            return groupEl;
+        }
+
+        // Render all root modules
+        for (const parent of parents) {
+            const groupEl = renderModuleWithChildren(parent, 0);
             modulesContainer.appendChild(groupEl);
         }
 
