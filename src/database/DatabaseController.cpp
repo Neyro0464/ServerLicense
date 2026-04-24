@@ -806,6 +806,44 @@ bool DatabaseController::addModule(const QString &moduleName, const QString &dis
   QSqlDatabase db = getConnection();
   if (!db.isOpen()) return false;
 
+  // Check if module with this name already exists (including soft-deleted)
+  QSqlQuery checkExisting(db);
+  checkExisting.prepare("SELECT is_active FROM modules WHERE module_name = :name");
+  checkExisting.bindValue(":name", moduleName);
+  if (checkExisting.exec() && checkExisting.next()) {
+    bool isActive = checkExisting.value(0).toBool();
+    if (isActive) {
+      qCritical() << "[DatabaseController] addModule: module already exists:" << moduleName;
+      return false;
+    } else {
+      // Module exists but is soft-deleted, reactivate it instead
+      qDebug() << "[DatabaseController] addModule: reactivating soft-deleted module:" << moduleName;
+      QSqlQuery reactivate(db);
+      reactivate.prepare("UPDATE modules SET display_label = :label, description = :desc, "
+                        "parent_module = :parent, sort_order = :sort, is_selectable = :selectable, "
+                        "requires_device = :device, dependency_group = :depgroup, required_with = :reqwith, "
+                        "is_active = true WHERE module_name = :name");
+      reactivate.bindValue(":name", moduleName);
+      reactivate.bindValue(":label", displayLabel.isEmpty() ? moduleName : displayLabel);
+      reactivate.bindValue(":desc", description);
+      reactivate.bindValue(":parent", parentModule.isEmpty() ? QVariant(QVariant::String) : parentModule);
+      reactivate.bindValue(":sort", sortOrder);
+      reactivate.bindValue(":selectable", isSelectable);
+      reactivate.bindValue(":device", requiresDevice);
+      reactivate.bindValue(":depgroup", dependencyGroup.isEmpty() ? QVariant(QVariant::String) : dependencyGroup);
+
+      QString reqWithArray = "{";
+      for (int i = 0; i < requiredWith.size(); ++i) {
+        if (i > 0) reqWithArray += ",";
+        reqWithArray += requiredWith[i].trimmed();
+      }
+      reqWithArray += "}";
+      reactivate.bindValue(":reqwith", reqWithArray);
+
+      return reactivate.exec();
+    }
+  }
+
   // Validate parent module exists if specified
   if (!parentModule.isEmpty()) {
     QSqlQuery checkParent(db);
@@ -902,6 +940,8 @@ bool DatabaseController::deleteModule(const QString &moduleName) {
   QSqlDatabase db = getConnection();
   if (!db.isOpen()) return false;
 
+  db.transaction();
+
   // Check if module is used in any licenses
   QSqlQuery checkUsage(db);
   checkUsage.prepare("SELECT COUNT(*) FROM license_modules WHERE module_name = :name");
@@ -912,28 +952,48 @@ bool DatabaseController::deleteModule(const QString &moduleName) {
     QSqlQuery softDel(db);
     softDel.prepare("UPDATE modules SET is_active = false WHERE module_name = :name");
     softDel.bindValue(":name", moduleName);
-    return softDel.exec() && softDel.numRowsAffected() > 0;
+    bool success = softDel.exec() && softDel.numRowsAffected() > 0;
+    if (success) {
+      db.commit();
+    } else {
+      db.rollback();
+    }
+    return success;
   }
 
-  // Check if module has children
+  // Check if module has active children
   QSqlQuery checkChildren(db);
   checkChildren.prepare("SELECT COUNT(*) FROM modules WHERE parent_module = :name AND is_active = true");
   checkChildren.bindValue(":name", moduleName);
   if (checkChildren.exec() && checkChildren.next() && checkChildren.value(0).toInt() > 0) {
-    qWarning() << "[DatabaseController] deleteModule: module has children, cannot delete:" << moduleName;
+    qWarning() << "[DatabaseController] deleteModule: module has active children, cannot delete:" << moduleName;
+    db.rollback();
     return false;
   }
 
-  // Hard delete if not used
+  // Before deleting, set parent_module to NULL for any inactive children
+  QSqlQuery clearParent(db);
+  clearParent.prepare("UPDATE modules SET parent_module = NULL WHERE parent_module = :name");
+  clearParent.bindValue(":name", moduleName);
+  clearParent.exec();
+
+  // Hard delete if not used in licenses and has no active children
   QSqlQuery query(db);
   query.prepare("DELETE FROM modules WHERE module_name = :name");
   query.bindValue(":name", moduleName);
 
   if (!query.exec()) {
     qCritical() << "[DatabaseController] deleteModule failed:" << query.lastError().text();
+    db.rollback();
     return false;
   }
 
-  return query.numRowsAffected() > 0;
+  bool success = query.numRowsAffected() > 0;
+  if (success) {
+    db.commit();
+  } else {
+    db.rollback();
+  }
+  return success;
 }
 
