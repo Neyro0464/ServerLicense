@@ -158,7 +158,7 @@
                 <!-- ======================== MODULES TAB ======================== -->
                 <div class="tab-content hidden" id="tabContentModules">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                        <p style="color: var(--text-muted); font-size: 0.9rem;">Управление модулями системы (Только для администраторов).</p>
+                        <p style="color: var(--text-muted); font-size: 0.9rem;">Управление модулями системы.</p>
                         <button class="btn-sm" id="addModuleBtn">+ Добавить модуль</button>
                     </div>
                     <div class="table-container">
@@ -168,15 +168,12 @@
                                     <th>Название модуля</th>
                                     <th>Отображаемое имя</th>
                                     <th>Родительский модуль</th>
-                                    <th>Порядок</th>
                                     <th>Выбираемый</th>
-                                    <th>Требует устройство</th>
-                                    <th>Группа зависимостей</th>
                                     <th>Действия</th>
                                 </tr>
                             </thead>
                             <tbody id="modulesTableBody">
-                                <tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text-muted);">Выберите вкладку «Модули» для загрузки.</td></tr>
+                                <tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--text-muted);">Выберите вкладку «Модули» для загрузки.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -368,35 +365,17 @@
                     <label for="addModuleDescription">Описание</label>
                     <input type="text" id="addModuleDescription" autocomplete="off" placeholder="(Необязательно)">
                 </div>
-                <div class="input-row">
-                    <div class="input-group half">
-                        <label for="addModuleParent">Родительский модуль</label>
-                        <select id="addModuleParent">
-                            <option value="">-- Корневой модуль --</option>
-                        </select>
-                    </div>
-                    <div class="input-group half">
-                        <label for="addModuleSortOrder">Порядок сортировки</label>
-                        <input type="number" id="addModuleSortOrder" value="0" min="0" autocomplete="off">
-                    </div>
-                </div>
-                <div class="input-row">
-                    <div class="input-group half">
-                        <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
-                            <input type="checkbox" id="addModuleSelectable" checked style="width:18px;height:18px;accent-color:var(--primary);">
-                            <span>Выбираемый в лицензиях</span>
-                        </label>
-                    </div>
-                    <div class="input-group half">
-                        <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
-                            <input type="checkbox" id="addModuleRequiresDevice" style="width:18px;height:18px;accent-color:var(--primary);">
-                            <span>Требует устройство</span>
-                        </label>
-                    </div>
+                <div class="input-group">
+                    <label for="addModuleParent">Родительский модуль</label>
+                    <select id="addModuleParent">
+                        <option value="">-- Корневой модуль --</option>
+                    </select>
                 </div>
                 <div class="input-group">
-                    <label for="addModuleDependencyGroup">Группа зависимостей <span style="color:var(--text-muted);font-weight:400;">(для взаимоисключающих опций)</span></label>
-                    <input type="text" id="addModuleDependencyGroup" autocomplete="off" placeholder="напр. tracking_algorithm">
+                    <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+                        <input type="checkbox" id="addModuleSelectable" checked style="width:18px;height:18px;accent-color:var(--primary);">
+                        <span>Выбираемый в лицензиях</span>
+                    </label>
                 </div>
                 <div class="input-group">
                     <label for="addModuleRequiredWith">Обязательные модули <span style="color:var(--text-muted);font-weight:400;">(через запятую)</span></label>
@@ -431,35 +410,17 @@
                     <label for="editModuleDescription">Описание</label>
                     <input type="text" id="editModuleDescription" autocomplete="off">
                 </div>
-                <div class="input-row">
-                    <div class="input-group half">
-                        <label for="editModuleParent">Родительский модуль</label>
-                        <select id="editModuleParent">
-                            <option value="">-- Корневой модуль --</option>
-                        </select>
-                    </div>
-                    <div class="input-group half">
-                        <label for="editModuleSortOrder">Порядок сортировки</label>
-                        <input type="number" id="editModuleSortOrder" value="0" min="0" autocomplete="off">
-                    </div>
-                </div>
-                <div class="input-row">
-                    <div class="input-group half">
-                        <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
-                            <input type="checkbox" id="editModuleSelectable" style="width:18px;height:18px;accent-color:var(--primary);">
-                            <span>Выбираемый в лицензиях</span>
-                        </label>
-                    </div>
-                    <div class="input-group half">
-                        <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
-                            <input type="checkbox" id="editModuleRequiresDevice" style="width:18px;height:18px;accent-color:var(--primary);">
-                            <span>Требует устройство</span>
-                        </label>
-                    </div>
+                <div class="input-group">
+                    <label for="editModuleParent">Родительский модуль</label>
+                    <select id="editModuleParent">
+                        <option value="">-- Корневой модуль --</option>
+                    </select>
                 </div>
                 <div class="input-group">
-                    <label for="editModuleDependencyGroup">Группа зависимостей <span style="color:var(--text-muted);font-weight:400;">(для взаимоисключающих опций)</span></label>
-                    <input type="text" id="editModuleDependencyGroup" autocomplete="off">
+                    <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+                        <input type="checkbox" id="editModuleSelectable" style="width:18px;height:18px;accent-color:var(--primary);">
+                        <span>Выбираемый в лицензиях</span>
+                    </label>
                 </div>
                 <div class="input-group">
                     <label for="editModuleRequiredWith">Обязательные модули <span style="color:var(--text-muted);font-weight:400;">(через запятую)</span></label>

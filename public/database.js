@@ -888,10 +888,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td style="font-family:monospace;color:#c4b5fd;">${indent}${icon}${esc(mod.moduleName)}</td>
                     <td>${esc(mod.displayLabel)}</td>
                     <td style="color:var(--text-muted);">${mod.parentModule ? esc(mod.parentModule) : '—'}</td>
-                    <td style="text-align:center;">${mod.sortOrder}</td>
                     <td style="text-align:center;">${mod.isSelectable ? '<span style="color:var(--success);">✓</span>' : '<span style="color:var(--text-muted);">✗</span>'}</td>
-                    <td style="text-align:center;">${mod.requiresDevice ? '<span style="color:var(--warning);">✓</span>' : '<span style="color:var(--text-muted);">✗</span>'}</td>
-                    <td style="color:var(--text-muted);font-size:0.85rem;">${mod.dependencyGroup || '—'}</td>
                     <td>
                         <div style="display:flex;gap:0.5rem;">
                             <button class="action-btn" onclick="window.__editModule('${mod.moduleName}')" style="background:var(--primary);color:#fff;" title="Редактировать">✏️</button>
@@ -918,10 +915,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('editModuleNameDisplay').value = mod.moduleName;
                 document.getElementById('editModuleDisplayLabel').value = mod.displayLabel;
                 document.getElementById('editModuleDescription').value = mod.description || '';
-                document.getElementById('editModuleSortOrder').value = mod.sortOrder;
                 document.getElementById('editModuleSelectable').checked = mod.isSelectable;
-                document.getElementById('editModuleRequiresDevice').checked = mod.requiresDevice;
-                document.getElementById('editModuleDependencyGroup').value = mod.dependencyGroup || '';
                 document.getElementById('editModuleRequiredWith').value = (mod.requiredWith || []).join(', ');
 
                 // Populate parent dropdown
@@ -996,10 +990,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 displayLabel: document.getElementById('addModuleDisplayLabel').value.trim(),
                 description: document.getElementById('addModuleDescription').value.trim(),
                 parentModule: document.getElementById('addModuleParent').value,
-                sortOrder: parseInt(document.getElementById('addModuleSortOrder').value) || 0,
+                sortOrder: 0,
                 isSelectable: document.getElementById('addModuleSelectable').checked,
-                requiresDevice: document.getElementById('addModuleRequiresDevice').checked,
-                dependencyGroup: document.getElementById('addModuleDependencyGroup').value.trim(),
+                requiresDevice: false,
+                dependencyGroup: '',
                 requiredWith: requiredWith
             };
 
@@ -1043,10 +1037,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 displayLabel: document.getElementById('editModuleDisplayLabel').value.trim(),
                 description: document.getElementById('editModuleDescription').value.trim(),
                 parentModule: document.getElementById('editModuleParent').value,
-                sortOrder: parseInt(document.getElementById('editModuleSortOrder').value) || 0,
+                sortOrder: 0,
                 isSelectable: document.getElementById('editModuleSelectable').checked,
-                requiresDevice: document.getElementById('editModuleRequiresDevice').checked,
-                dependencyGroup: document.getElementById('editModuleDependencyGroup').value.trim(),
+                requiresDevice: false,
+                dependencyGroup: '',
                 requiredWith: requiredWith,
                 isActive: true
             };
