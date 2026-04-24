@@ -249,6 +249,18 @@ void LicenseController::getModules(
       item["displayLabel"] = mod.displayLabel.toStdString();
       item["parentModule"] = mod.parentModule.toStdString();
       item["sortOrder"]    = mod.sortOrder;
+      item["isSelectable"] = mod.isSelectable;
+      item["requiresDevice"] = mod.requiresDevice;
+      item["dependencyGroup"] = mod.dependencyGroup.toStdString();
+      item["isActive"] = mod.isActive;
+      item["description"] = mod.description.toStdString();
+
+      Json::Value reqWithArray(Json::arrayValue);
+      for (const QString &rw : mod.requiredWith) {
+        reqWithArray.append(rw.toStdString());
+      }
+      item["requiredWith"] = reqWithArray;
+
       responseJson.append(item);
     }
 

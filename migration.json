@@ -69,6 +69,11 @@
             "version": 13,
             "applySql": "ALTER TABLE accounts DROP CONSTRAINT IF EXISTS accounts_status_name_fkey; INSERT INTO status (name, access_description) VALUES ('admin', 'Full access — Administrator') ON CONFLICT (name) DO NOTHING; UPDATE accounts SET status_name = 'admin' WHERE status_name = 'director'; DELETE FROM status WHERE name = 'director'; ALTER TABLE accounts ADD CONSTRAINT accounts_status_name_fkey FOREIGN KEY (status_name) REFERENCES status(name);",
             "revertSql": "ALTER TABLE accounts DROP CONSTRAINT IF EXISTS accounts_status_name_fkey; INSERT INTO status (name, access_description) VALUES ('director', 'Full access') ON CONFLICT (name) DO NOTHING; UPDATE accounts SET status_name = 'director' WHERE status_name = 'admin'; DELETE FROM status WHERE name = 'admin'; ALTER TABLE accounts ADD CONSTRAINT accounts_status_name_fkey FOREIGN KEY (status_name) REFERENCES status(name);"
+        },
+        {
+            "version": 14,
+            "applySql": "ALTER TABLE modules ADD COLUMN IF NOT EXISTS is_selectable BOOLEAN DEFAULT true; ALTER TABLE modules ADD COLUMN IF NOT EXISTS requires_device BOOLEAN DEFAULT false; ALTER TABLE modules ADD COLUMN IF NOT EXISTS dependency_group TEXT; ALTER TABLE modules ADD COLUMN IF NOT EXISTS required_with TEXT[]; ALTER TABLE modules ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true; UPDATE modules SET is_selectable = true WHERE is_selectable IS NULL; UPDATE modules SET requires_device = false WHERE requires_device IS NULL; UPDATE modules SET is_active = true WHERE is_active IS NULL;",
+            "revertSql": "ALTER TABLE modules DROP COLUMN IF EXISTS is_selectable; ALTER TABLE modules DROP COLUMN IF EXISTS requires_device; ALTER TABLE modules DROP COLUMN IF EXISTS dependency_group; ALTER TABLE modules DROP COLUMN IF EXISTS required_with; ALTER TABLE modules DROP COLUMN IF EXISTS is_active;"
         }
     ]
 }

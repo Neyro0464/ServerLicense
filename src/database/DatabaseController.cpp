@@ -624,8 +624,11 @@ QVector<ModuleRecord> DatabaseController::getAllModules() const {
 
   QSqlQuery query(db);
   if (!query.exec("SELECT module_name, COALESCE(display_label, module_name), "
-                  "COALESCE(parent_module, ''), COALESCE(sort_order, 0) "
-                  "FROM modules ORDER BY COALESCE(sort_order, 0), module_name")) {
+                  "COALESCE(parent_module, ''), COALESCE(sort_order, 0), "
+                  "COALESCE(is_selectable, true), COALESCE(requires_device, false), "
+                  "COALESCE(dependency_group, ''), COALESCE(required_with, '{}'), "
+                  "COALESCE(is_active, true), COALESCE(description, '') "
+                  "FROM modules WHERE is_active = true ORDER BY COALESCE(sort_order, 0), module_name")) {
     qCritical() << "[DatabaseController] getAllModules failed:"
                 << query.lastError().text();
     return modules;
@@ -637,6 +640,24 @@ QVector<ModuleRecord> DatabaseController::getAllModules() const {
     rec.displayLabel = query.value(1).toString();
     rec.parentModule = query.value(2).toString();
     rec.sortOrder    = query.value(3).toInt();
+    rec.isSelectable = query.value(4).toBool();
+    rec.requiresDevice = query.value(5).toBool();
+    rec.dependencyGroup = query.value(6).toString();
+
+    // Parse TEXT[] array from PostgreSQL
+    QString reqWithStr = query.value(7).toString();
+    if (!reqWithStr.isEmpty() && reqWithStr != "{}") {
+      // Remove braces and split by comma
+      reqWithStr = reqWithStr.mid(1, reqWithStr.length() - 2); // Remove { }
+      rec.requiredWith = reqWithStr.split(',', Qt::SkipEmptyParts);
+      // Trim each element
+      for (QString &s : rec.requiredWith) {
+        s = s.trimmed();
+      }
+    }
+
+    rec.isActive = query.value(8).toBool();
+    rec.description = query.value(9).toString();
     modules.append(rec);
   }
   return modules;
@@ -776,5 +797,143 @@ void DatabaseController::cleanupOldLogs(int days) {
       qDebug() << "[DatabaseController] Cleaned up" << removed << "old log entries.";
     }
   }
+}
+
+bool DatabaseController::addModule(const QString &moduleName, const QString &displayLabel,
+                                    const QString &description, const QString &parentModule,
+                                    int sortOrder, bool isSelectable, bool requiresDevice,
+                                    const QString &dependencyGroup, const QStringList &requiredWith) {
+  QSqlDatabase db = getConnection();
+  if (!db.isOpen()) return false;
+
+  // Validate parent module exists if specified
+  if (!parentModule.isEmpty()) {
+    QSqlQuery checkParent(db);
+    checkParent.prepare("SELECT 1 FROM modules WHERE module_name = :parent AND is_active = true");
+    checkParent.bindValue(":parent", parentModule);
+    if (!checkParent.exec() || !checkParent.next()) {
+      qCritical() << "[DatabaseController] addModule: parent module does not exist:" << parentModule;
+      return false;
+    }
+  }
+
+  // Convert QStringList to PostgreSQL array format
+  QString reqWithArray = "{";
+  for (int i = 0; i < requiredWith.size(); ++i) {
+    if (i > 0) reqWithArray += ",";
+    reqWithArray += requiredWith[i].trimmed();
+  }
+  reqWithArray += "}";
+
+  QSqlQuery query(db);
+  query.prepare("INSERT INTO modules (module_name, display_label, description, parent_module, "
+                "sort_order, is_selectable, requires_device, dependency_group, required_with, is_active) "
+                "VALUES (:name, :label, :desc, :parent, :sort, :selectable, :device, :depgroup, :reqwith, true)");
+  query.bindValue(":name", moduleName);
+  query.bindValue(":label", displayLabel.isEmpty() ? moduleName : displayLabel);
+  query.bindValue(":desc", description);
+  query.bindValue(":parent", parentModule.isEmpty() ? QVariant(QVariant::String) : parentModule);
+  query.bindValue(":sort", sortOrder);
+  query.bindValue(":selectable", isSelectable);
+  query.bindValue(":device", requiresDevice);
+  query.bindValue(":depgroup", dependencyGroup.isEmpty() ? QVariant(QVariant::String) : dependencyGroup);
+  query.bindValue(":reqwith", reqWithArray);
+
+  if (!query.exec()) {
+    qCritical() << "[DatabaseController] addModule failed:" << query.lastError().text();
+    return false;
+  }
+
+  return true;
+}
+
+bool DatabaseController::updateModule(const QString &moduleName, const QString &displayLabel,
+                                       const QString &description, const QString &parentModule,
+                                       int sortOrder, bool isSelectable, bool requiresDevice,
+                                       const QString &dependencyGroup, const QStringList &requiredWith,
+                                       bool isActive) {
+  QSqlDatabase db = getConnection();
+  if (!db.isOpen()) return false;
+
+  // Validate parent module exists if specified and not self-referencing
+  if (!parentModule.isEmpty() && parentModule != moduleName) {
+    QSqlQuery checkParent(db);
+    checkParent.prepare("SELECT 1 FROM modules WHERE module_name = :parent AND is_active = true");
+    checkParent.bindValue(":parent", parentModule);
+    if (!checkParent.exec() || !checkParent.next()) {
+      qCritical() << "[DatabaseController] updateModule: parent module does not exist:" << parentModule;
+      return false;
+    }
+  }
+
+  // Convert QStringList to PostgreSQL array format
+  QString reqWithArray = "{";
+  for (int i = 0; i < requiredWith.size(); ++i) {
+    if (i > 0) reqWithArray += ",";
+    reqWithArray += requiredWith[i].trimmed();
+  }
+  reqWithArray += "}";
+
+  QSqlQuery query(db);
+  query.prepare("UPDATE modules SET display_label = :label, description = :desc, "
+                "parent_module = :parent, sort_order = :sort, is_selectable = :selectable, "
+                "requires_device = :device, dependency_group = :depgroup, required_with = :reqwith, "
+                "is_active = :active WHERE module_name = :name");
+  query.bindValue(":name", moduleName);
+  query.bindValue(":label", displayLabel.isEmpty() ? moduleName : displayLabel);
+  query.bindValue(":desc", description);
+  query.bindValue(":parent", parentModule.isEmpty() || parentModule == moduleName ? QVariant(QVariant::String) : parentModule);
+  query.bindValue(":sort", sortOrder);
+  query.bindValue(":selectable", isSelectable);
+  query.bindValue(":device", requiresDevice);
+  query.bindValue(":depgroup", dependencyGroup.isEmpty() ? QVariant(QVariant::String) : dependencyGroup);
+  query.bindValue(":reqwith", reqWithArray);
+  query.bindValue(":active", isActive);
+
+  if (!query.exec()) {
+    qCritical() << "[DatabaseController] updateModule failed:" << query.lastError().text();
+    return false;
+  }
+
+  return query.numRowsAffected() > 0;
+}
+
+bool DatabaseController::deleteModule(const QString &moduleName) {
+  QSqlDatabase db = getConnection();
+  if (!db.isOpen()) return false;
+
+  // Check if module is used in any licenses
+  QSqlQuery checkUsage(db);
+  checkUsage.prepare("SELECT COUNT(*) FROM license_modules WHERE module_name = :name");
+  checkUsage.bindValue(":name", moduleName);
+  if (checkUsage.exec() && checkUsage.next() && checkUsage.value(0).toInt() > 0) {
+    qWarning() << "[DatabaseController] deleteModule: module is used in licenses, performing soft delete:" << moduleName;
+    // Soft delete instead of hard delete
+    QSqlQuery softDel(db);
+    softDel.prepare("UPDATE modules SET is_active = false WHERE module_name = :name");
+    softDel.bindValue(":name", moduleName);
+    return softDel.exec() && softDel.numRowsAffected() > 0;
+  }
+
+  // Check if module has children
+  QSqlQuery checkChildren(db);
+  checkChildren.prepare("SELECT COUNT(*) FROM modules WHERE parent_module = :name AND is_active = true");
+  checkChildren.bindValue(":name", moduleName);
+  if (checkChildren.exec() && checkChildren.next() && checkChildren.value(0).toInt() > 0) {
+    qWarning() << "[DatabaseController] deleteModule: module has children, cannot delete:" << moduleName;
+    return false;
+  }
+
+  // Hard delete if not used
+  QSqlQuery query(db);
+  query.prepare("DELETE FROM modules WHERE module_name = :name");
+  query.bindValue(":name", moduleName);
+
+  if (!query.exec()) {
+    qCritical() << "[DatabaseController] deleteModule failed:" << query.lastError().text();
+    return false;
+  }
+
+  return query.numRowsAffected() > 0;
 }
 

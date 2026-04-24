@@ -108,6 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * Parent modules (parentModule === '') become group headers.
      * Child modules are nested under their parent.
      * Only modules in allowedNames are shown.
+     * Handles: isSelectable, requiresDevice, dependencyGroup, requiredWith
      */
     function renderModuleTree(moduleRecords, allowedNames) {
         modulesContainer.innerHTML = '';
@@ -123,6 +124,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         const cbByKey = {};
+        const moduleByKey = {};
+        filtered.forEach(m => moduleByKey[m.moduleName] = m);
+
         const registerCb = (key, cb) => {
             if (!cbByKey[key]) cbByKey[key] = [];
             cbByKey[key].push(cb);
@@ -138,41 +142,99 @@ document.addEventListener('DOMContentLoaded', () => {
             headerRow.className = 'module-group-header-row';
             const headerLabel = document.createElement('label');
             headerLabel.className = 'module-group-header';
-            const headerCb = document.createElement('input');
-            headerCb.type = 'checkbox'; headerCb.className = 'module-header-cb';
-            headerCb.name = 'modules'; headerCb.value = parent.moduleName;
-            headerCb.dataset.groupParent = parent.moduleName;
-            const headerMark = document.createElement('span'); headerMark.className = 'checkmark';
-            const headerText = document.createElement('span');
-            headerText.textContent = parent.displayLabel || parent.moduleName;
-            headerLabel.append(headerCb, headerMark, headerText);
+
+            // Parent checkbox (or just label if not selectable)
+            if (parent.isSelectable) {
+                const headerCb = document.createElement('input');
+                headerCb.type = 'checkbox';
+                headerCb.className = 'module-header-cb';
+                headerCb.name = 'modules';
+                headerCb.value = parent.moduleName;
+                headerCb.dataset.groupParent = parent.moduleName;
+                const headerMark = document.createElement('span');
+                headerMark.className = 'checkmark';
+                const headerText = document.createElement('span');
+                headerText.textContent = parent.displayLabel || parent.moduleName;
+                if (parent.requiresDevice) {
+                    headerText.textContent += ' 🖥️';
+                    headerText.title = 'Требует устройство';
+                }
+                headerLabel.append(headerCb, headerMark, headerText);
+                registerCb(parent.moduleName, headerCb);
+                groupMeta.push({ parentKey: parent.moduleName, parentCb: headerCb, childCbs: [], parentModule: parent });
+            } else {
+                // Non-selectable parent (category only)
+                const headerText = document.createElement('span');
+                headerText.textContent = parent.displayLabel || parent.moduleName;
+                headerText.style.fontWeight = 'bold';
+                headerText.style.color = 'var(--text-muted)';
+                headerLabel.appendChild(headerText);
+                groupMeta.push({ parentKey: parent.moduleName, parentCb: null, childCbs: [], parentModule: parent });
+            }
+
             headerRow.appendChild(headerLabel);
             groupEl.appendChild(headerRow);
-            registerCb(parent.moduleName, headerCb);
 
             // Children
             const childrenEl = document.createElement('div');
             childrenEl.className = 'module-group-children';
-            const childCbs = [];
-            for (const child of (childrenMap[parent.moduleName] || [])) {
-                const childRow = document.createElement('div'); childRow.className = 'module-child';
+            const children = (childrenMap[parent.moduleName] || []).sort((a, b) => a.sortOrder - b.sortOrder);
+            const meta = groupMeta[groupMeta.length - 1];
+
+            // Group children by dependency group for radio buttons
+            const depGroups = {};
+            children.forEach(child => {
+                if (child.dependencyGroup) {
+                    if (!depGroups[child.dependencyGroup]) depGroups[child.dependencyGroup] = [];
+                    depGroups[child.dependencyGroup].push(child);
+                }
+            });
+
+            for (const child of children) {
+                if (!child.isSelectable) continue; // Skip non-selectable children
+
+                const childRow = document.createElement('div');
+                childRow.className = 'module-child';
                 const childLabel = document.createElement('label');
                 childLabel.className = 'module-checkbox module-child-label';
+
                 const childCb = document.createElement('input');
-                childCb.type = 'checkbox'; childCb.name = 'modules'; childCb.value = child.moduleName;
+                // Use radio button if part of dependency group
+                if (child.dependencyGroup && depGroups[child.dependencyGroup].length > 1) {
+                    childCb.type = 'radio';
+                    childCb.name = `depgroup_${child.dependencyGroup}`;
+                } else {
+                    childCb.type = 'checkbox';
+                    childCb.name = 'modules';
+                }
+                childCb.value = child.moduleName;
                 childCb.dataset.groupChild = parent.moduleName;
-                const childMark = document.createElement('span'); childMark.className = 'checkmark';
+                if (child.dependencyGroup) childCb.dataset.dependencyGroup = child.dependencyGroup;
+                if (child.requiredWith && child.requiredWith.length > 0) {
+                    childCb.dataset.requiredWith = JSON.stringify(child.requiredWith);
+                }
+
+                const childMark = document.createElement('span');
+                childMark.className = 'checkmark';
                 const childText = document.createElement('span');
                 childText.textContent = child.displayLabel || child.moduleName;
+                if (child.requiresDevice) {
+                    childText.textContent += ' 🖥️';
+                    childText.title = 'Требует устройство';
+                }
+                if (child.description) {
+                    childText.title = child.description;
+                }
+
                 childLabel.append(childCb, childMark, childText);
                 childRow.appendChild(childLabel);
                 childrenEl.appendChild(childRow);
-                childCbs.push(childCb);
+                meta.childCbs.push(childCb);
                 registerCb(child.moduleName, childCb);
             }
+
             groupEl.appendChild(childrenEl);
             modulesContainer.appendChild(groupEl);
-            groupMeta.push({ parentKey: parent.moduleName, parentCb: headerCb, childCbs });
         }
 
         if (!groupMeta.length) {
@@ -180,35 +242,67 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Sync logic (same as before)
+        // Sync logic with validation
         const syncKey = (key, checked, originCb) => {
             (cbByKey[key] || []).forEach(cb => { if (cb !== originCb) cb.checked = checked; });
+        };
+
+        const autoSelectRequired = (moduleName) => {
+            const mod = moduleByKey[moduleName];
+            if (!mod || !mod.requiredWith || mod.requiredWith.length === 0) return;
+
+            mod.requiredWith.forEach(reqName => {
+                const reqCbs = cbByKey[reqName];
+                if (reqCbs) {
+                    reqCbs.forEach(cb => {
+                        if (!cb.checked) {
+                            cb.checked = true;
+                            syncKey(reqName, true, cb);
+                            // Recursively check required dependencies
+                            autoSelectRequired(reqName);
+                            // Check parent if child is selected
+                            if (cb.dataset.groupChild) {
+                                const parentKey = cb.dataset.groupChild;
+                                const parentMeta = groupMeta.find(m => m.parentKey === parentKey);
+                                if (parentMeta && parentMeta.parentCb) {
+                                    parentMeta.parentCb.checked = true;
+                                    syncKey(parentKey, true, parentMeta.parentCb);
+                                }
+                            }
+                        }
+                    });
+                }
+            });
         };
 
         for (const meta of groupMeta) {
             for (const childCb of meta.childCbs) {
                 childCb.addEventListener('change', () => {
                     if (childCb.checked) {
-                        meta.parentCb.checked = true;
-                        syncKey(meta.parentKey, true, meta.parentCb);
+                        // Auto-select parent
+                        if (meta.parentCb) {
+                            meta.parentCb.checked = true;
+                            syncKey(meta.parentKey, true, meta.parentCb);
+                        }
+                        // Auto-select required modules
+                        autoSelectRequired(childCb.value);
                     }
                     syncKey(childCb.value, childCb.checked, childCb);
-                    if (childCb.value === 'Monopulse' && childCb.checked) {
-                        (cbByKey['Monopulse'] || []).forEach(cb => {
-                            if (cb !== childCb && cb.dataset.groupChild) {
-                                const otherParentKey = cb.dataset.groupChild;
-                                (cbByKey[otherParentKey] || []).forEach(pcb => { pcb.checked = true; });
-                            }
-                        });
-                    }
                 });
             }
-            meta.parentCb.addEventListener('change', () => {
-                if (!meta.parentCb.checked) {
-                    meta.childCbs.forEach(cb => { cb.checked = false; syncKey(cb.value, false, cb); });
-                }
-                syncKey(meta.parentKey, meta.parentCb.checked, meta.parentCb);
-            });
+
+            if (meta.parentCb) {
+                meta.parentCb.addEventListener('change', () => {
+                    if (!meta.parentCb.checked) {
+                        // Uncheck all children
+                        meta.childCbs.forEach(cb => {
+                            cb.checked = false;
+                            syncKey(cb.value, false, cb);
+                        });
+                    }
+                    syncKey(meta.parentKey, meta.parentCb.checked, meta.parentCb);
+                });
+            }
         }
     }
 
@@ -374,6 +468,40 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // Validate that only selectable modules are checked
+        const checkedModules = Array.from(generateForm.querySelectorAll('input[name="modules"]:checked, input[type="radio"]:checked'))
+            .map(cb => cb.value);
+
+        const nonSelectableChecked = checkedModules.filter(modName => {
+            const mod = allModulesData.find(m => m.moduleName === modName);
+            return mod && !mod.isSelectable;
+        });
+
+        if (nonSelectableChecked.length > 0) {
+            showError(`Следующие модули не могут быть выбраны: ${nonSelectableChecked.join(', ')}`);
+            return;
+        }
+
+        // Check for category-only selections (parent without children)
+        const selectedSet = new Set(checkedModules);
+        const warnings = [];
+
+        allModulesData.forEach(mod => {
+            if (selectedSet.has(mod.moduleName) && !mod.parentModule) {
+                // This is a parent module, check if any children are selected
+                const children = allModulesData.filter(m => m.parentModule === mod.moduleName && m.isSelectable);
+                const hasSelectedChild = children.some(child => selectedSet.has(child.moduleName));
+                if (!hasSelectedChild && children.length > 0) {
+                    warnings.push(`Модуль "${mod.displayLabel || mod.moduleName}" выбран без дочерних модулей.`);
+                }
+            }
+        });
+
+        if (warnings.length > 0) {
+            const proceed = confirm(warnings.join('\n') + '\n\nПродолжить генерацию?');
+            if (!proceed) return;
+        }
+
         // Reset UI
         resultArea.classList.add('hidden');
         errorToast.classList.add('hidden');
@@ -383,13 +511,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Gather data
         const formData = new FormData(generateForm);
+
+        // Collect modules from both checkboxes and radio buttons
+        const selectedModules = [];
+
+        // Get checkbox modules
+        generateForm.querySelectorAll('input[name="modules"]:checked').forEach(cb => {
+            selectedModules.push(cb.value);
+        });
+
+        // Get radio button modules (dependency groups)
+        generateForm.querySelectorAll('input[type="radio"]:checked').forEach(rb => {
+            if (rb.name.startsWith('depgroup_')) {
+                selectedModules.push(rb.value);
+            }
+        });
+
         const data = {
             companyName: formData.get('companyName'),
             hardwareId: formData.get('hardwareId'),
             issueDate: formData.get('issueDate'),
             expiredDate: formData.get('expiredDate'),
-            // Deduplicate: Monopulse appears in both groups but must be sent once
-            modules: [...new Set(formData.getAll('modules'))]
+            // Deduplicate modules
+            modules: [...new Set(selectedModules)]
         };
 
         try {

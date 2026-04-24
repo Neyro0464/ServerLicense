@@ -99,6 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let companiesLoaded = false;
     let employeesLoaded = false;
     let configurationsLoaded = false;
+    let modulesLoaded = false;
     let allModulesCache = []; // cached modules for config editing
 
     document.querySelectorAll('.db-tab').forEach(tab => {
@@ -114,6 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (name === 'companies' && !companiesLoaded) loadCompanies();
             if (name === 'employees' && !employeesLoaded) loadEmployees();
             if (name === 'configurations' && !configurationsLoaded) loadConfigurations();
+            if (name === 'modules' && !modulesLoaded) loadModules();
         });
     });
 
@@ -301,7 +303,26 @@ document.addEventListener('DOMContentLoaded', () => {
             window.__downloadHwId = (id) => {
                 const lic = allLicensesData.find(l => String(l.id) === String(id));
                 if (!lic || !lic.hardwareId) return;
-                const bytes = new TextEncoder().encode(lic.hardwareId);
+
+                // Convert hardware ID string to binary format
+                // Assuming hardwareId is a hex string (e.g., "A1B2C3D4") or alphanumeric
+                // If it's hex, convert to bytes; otherwise use UTF-8 encoding
+                let bytes;
+                const hwid = lic.hardwareId.trim();
+
+                // Check if it's a valid hex string (only 0-9, A-F, a-f, optional dashes)
+                if (/^[0-9A-Fa-f\-]+$/.test(hwid)) {
+                    // Remove dashes and convert hex to bytes
+                    const hexStr = hwid.replace(/-/g, '');
+                    bytes = new Uint8Array(hexStr.length / 2);
+                    for (let i = 0; i < hexStr.length; i += 2) {
+                        bytes[i / 2] = parseInt(hexStr.substr(i, 2), 16);
+                    }
+                } else {
+                    // Not hex, use UTF-8 encoding
+                    bytes = new TextEncoder().encode(hwid);
+                }
+
                 const blob = new Blob([bytes], { type: 'application/octet-stream' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -817,6 +838,231 @@ document.addEventListener('DOMContentLoaded', () => {
                 loadConfigurations();
             } catch(err) {
                 showFormError('editConfigErrorMsg', 'editConfigError', err.message);
+            } finally {
+                btn.disabled = false; btn.textContent = 'Сохранить изменения';
+            }
+        });
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    //  MODULES
+    // ════════════════════════════════════════════════════════════════════════════
+    const moduleStore = new Map();
+    let allModulesData = [];
+
+    async function loadModules() {
+        const tbody = document.getElementById('modulesTableBody');
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;"><div class="loader inline-loader" style="margin:0 auto;border-top-color:var(--primary);"></div></td></tr>';
+
+        try {
+            const res = await fetch('/api/modules');
+            if (!res.ok) throw new Error('Не удалось загрузить список модулей.');
+            const data = await res.json();
+            allModulesData = data;
+            modulesLoaded = true;
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text-muted);">Модули не найдены.</td></tr>';
+                return;
+            }
+
+            // Build tree structure
+            const rootModules = data.filter(m => !m.parentModule);
+            const childMap = new Map();
+            data.forEach(m => {
+                if (m.parentModule) {
+                    if (!childMap.has(m.parentModule)) childMap.set(m.parentModule, []);
+                    childMap.get(m.parentModule).push(m);
+                }
+                moduleStore.set(m.moduleName, m);
+            });
+
+            function renderModule(mod, level = 0) {
+                const tr = document.createElement('tr');
+                const indent = '&nbsp;'.repeat(level * 4);
+                const icon = level > 0 ? '└─ ' : '';
+
+                tr.innerHTML = `
+                    <td style="font-family:monospace;color:#c4b5fd;">${indent}${icon}${esc(mod.moduleName)}</td>
+                    <td>${esc(mod.displayLabel)}</td>
+                    <td style="color:var(--text-muted);">${mod.parentModule ? esc(mod.parentModule) : '—'}</td>
+                    <td style="text-align:center;">${mod.sortOrder}</td>
+                    <td style="text-align:center;">${mod.isSelectable ? '<span style="color:var(--success);">✓</span>' : '<span style="color:var(--text-muted);">✗</span>'}</td>
+                    <td style="text-align:center;">${mod.requiresDevice ? '<span style="color:var(--warning);">✓</span>' : '<span style="color:var(--text-muted);">✗</span>'}</td>
+                    <td style="color:var(--text-muted);font-size:0.85rem;">${mod.dependencyGroup || '—'}</td>
+                    <td>
+                        <div style="display:flex;gap:0.5rem;">
+                            <button class="action-btn" onclick="window.__editModule('${mod.moduleName}')" style="background:var(--primary);color:#fff;" title="Редактировать">✏️</button>
+                            <button class="action-btn action-btn--delete" onclick="window.__deleteModule('${mod.moduleName}')" title="Удалить">🗑️</button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+
+                // Render children
+                const children = childMap.get(mod.moduleName) || [];
+                children.sort((a, b) => a.sortOrder - b.sortOrder);
+                children.forEach(child => renderModule(child, level + 1));
+            }
+
+            rootModules.sort((a, b) => a.sortOrder - b.sortOrder);
+            rootModules.forEach(mod => renderModule(mod));
+
+            // Global functions for actions
+            window.__editModule = (name) => {
+                const mod = moduleStore.get(name);
+                if (!mod) return;
+                document.getElementById('editModuleName').value = mod.moduleName;
+                document.getElementById('editModuleNameDisplay').value = mod.moduleName;
+                document.getElementById('editModuleDisplayLabel').value = mod.displayLabel;
+                document.getElementById('editModuleDescription').value = mod.description || '';
+                document.getElementById('editModuleSortOrder').value = mod.sortOrder;
+                document.getElementById('editModuleSelectable').checked = mod.isSelectable;
+                document.getElementById('editModuleRequiresDevice').checked = mod.requiresDevice;
+                document.getElementById('editModuleDependencyGroup').value = mod.dependencyGroup || '';
+                document.getElementById('editModuleRequiredWith').value = (mod.requiredWith || []).join(', ');
+
+                // Populate parent dropdown
+                const parentSelect = document.getElementById('editModuleParent');
+                parentSelect.innerHTML = '<option value="">-- Корневой модуль --</option>';
+                allModulesData.filter(m => m.moduleName !== mod.moduleName).forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m.moduleName;
+                    opt.textContent = m.displayLabel || m.moduleName;
+                    if (m.moduleName === mod.parentModule) opt.selected = true;
+                    parentSelect.appendChild(opt);
+                });
+
+                document.getElementById('editModuleModal').classList.remove('hidden');
+            };
+
+            window.__deleteModule = (name) => {
+                deleteCallback = async () => {
+                    try {
+                        const r = await fetch(`/api/modules/${encodeURIComponent(name)}`, { method: 'DELETE' });
+                        if (!r.ok) {
+                            const msg = await safeDeleteError(r, 'Не удалось удалить модуль.');
+                            showError(msg);
+                            return;
+                        }
+                        modulesLoaded = false;
+                        loadModules();
+                    } catch(err) {
+                        showError(err.message);
+                    }
+                };
+                document.getElementById('confirmDeleteModal').classList.remove('hidden');
+            };
+
+        } catch(err) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--error);">Ошибка при загрузке модулей.</td></tr>';
+            showError(err.message);
+        }
+    }
+
+    // Add module modal
+    const addModuleModal = document.getElementById('addModuleModal');
+    if (addModuleModal) {
+        document.getElementById('addModuleBtn').addEventListener('click', async () => {
+            // Populate parent dropdown
+            await fetchAllModules();
+            const parentSelect = document.getElementById('addModuleParent');
+            parentSelect.innerHTML = '<option value="">-- Корневой модуль --</option>';
+            allModulesCache.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m.moduleName;
+                opt.textContent = m.displayLabel || m.moduleName;
+                parentSelect.appendChild(opt);
+            });
+            addModuleModal.classList.remove('hidden');
+        });
+
+        document.getElementById('closeAddModuleModal').addEventListener('click', () => addModuleModal.classList.add('hidden'));
+        window.addEventListener('click', e => { if (e.target === addModuleModal) addModuleModal.classList.add('hidden'); });
+
+        document.getElementById('addModuleForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideFormError('addModuleError');
+            const btn = document.getElementById('addModuleSubmitBtn');
+            btn.disabled = true; btn.textContent = 'Добавление...';
+
+            const requiredWithStr = document.getElementById('addModuleRequiredWith').value.trim();
+            const requiredWith = requiredWithStr ? requiredWithStr.split(',').map(s => s.trim()).filter(s => s) : [];
+
+            const data = {
+                moduleName: document.getElementById('addModuleName').value.trim(),
+                displayLabel: document.getElementById('addModuleDisplayLabel').value.trim(),
+                description: document.getElementById('addModuleDescription').value.trim(),
+                parentModule: document.getElementById('addModuleParent').value,
+                sortOrder: parseInt(document.getElementById('addModuleSortOrder').value) || 0,
+                isSelectable: document.getElementById('addModuleSelectable').checked,
+                requiresDevice: document.getElementById('addModuleRequiresDevice').checked,
+                dependencyGroup: document.getElementById('addModuleDependencyGroup').value.trim(),
+                requiredWith: requiredWith
+            };
+
+            try {
+                const r = await fetch('/api/modules', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Ошибка добавления модуля.'); }
+                addModuleModal.classList.add('hidden');
+                document.getElementById('addModuleForm').reset();
+                allModulesCache = []; // Clear cache
+                modulesLoaded = false;
+                loadModules();
+            } catch(err) {
+                showFormError('addModuleErrorMsg', 'addModuleError', err.message);
+            } finally {
+                btn.disabled = false; btn.textContent = 'Добавить модуль';
+            }
+        });
+    }
+
+    // Edit module modal
+    const editModuleModal = document.getElementById('editModuleModal');
+    if (editModuleModal) {
+        document.getElementById('closeEditModuleModal').addEventListener('click', () => editModuleModal.classList.add('hidden'));
+        window.addEventListener('click', e => { if (e.target === editModuleModal) editModuleModal.classList.add('hidden'); });
+
+        document.getElementById('editModuleForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideFormError('editModuleError');
+            const btn = document.getElementById('editModuleSubmitBtn');
+            btn.disabled = true; btn.textContent = 'Сохранение...';
+
+            const moduleName = document.getElementById('editModuleName').value;
+            const requiredWithStr = document.getElementById('editModuleRequiredWith').value.trim();
+            const requiredWith = requiredWithStr ? requiredWithStr.split(',').map(s => s.trim()).filter(s => s) : [];
+
+            const data = {
+                displayLabel: document.getElementById('editModuleDisplayLabel').value.trim(),
+                description: document.getElementById('editModuleDescription').value.trim(),
+                parentModule: document.getElementById('editModuleParent').value,
+                sortOrder: parseInt(document.getElementById('editModuleSortOrder').value) || 0,
+                isSelectable: document.getElementById('editModuleSelectable').checked,
+                requiresDevice: document.getElementById('editModuleRequiresDevice').checked,
+                dependencyGroup: document.getElementById('editModuleDependencyGroup').value.trim(),
+                requiredWith: requiredWith,
+                isActive: true
+            };
+
+            try {
+                const r = await fetch(`/api/modules/${encodeURIComponent(moduleName)}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Ошибка обновления модуля.'); }
+                editModuleModal.classList.add('hidden');
+                allModulesCache = []; // Clear cache
+                modulesLoaded = false;
+                loadModules();
+            } catch(err) {
+                showFormError('editModuleErrorMsg', 'editModuleError', err.message);
             } finally {
                 btn.disabled = false; btn.textContent = 'Сохранить изменения';
             }

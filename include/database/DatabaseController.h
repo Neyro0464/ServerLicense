@@ -16,6 +16,12 @@ struct ModuleRecord {
   QString displayLabel;  // Russian name (display_label)
   QString parentModule;  // parent_module_name or empty if root
   int     sortOrder = 0;
+  bool    isSelectable = true;  // Can be selected in licenses
+  bool    requiresDevice = false;  // Must be bundled with hardware
+  QString dependencyGroup;  // For mutually exclusive choices (e.g., "tracking_algorithm")
+  QStringList requiredWith;  // Modules that must be selected together
+  bool    isActive = true;  // Soft delete flag
+  QString description;  // Module description
 };
 
 struct ConfigurationRecord {
@@ -86,6 +92,16 @@ public:
 
   // Modules (with hierarchy info)
   QVector<ModuleRecord> getAllModules() const;
+  bool addModule(const QString &moduleName, const QString &displayLabel,
+                 const QString &description, const QString &parentModule,
+                 int sortOrder, bool isSelectable, bool requiresDevice,
+                 const QString &dependencyGroup, const QStringList &requiredWith);
+  bool updateModule(const QString &moduleName, const QString &displayLabel,
+                    const QString &description, const QString &parentModule,
+                    int sortOrder, bool isSelectable, bool requiresDevice,
+                    const QString &dependencyGroup, const QStringList &requiredWith,
+                    bool isActive);
+  bool deleteModule(const QString &moduleName);
 
   // System Configurations
   QVector<ConfigurationRecord> getAllConfigurations() const;
