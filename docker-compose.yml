@@ -1,10 +1,8 @@
+
 services:
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile # Здесь вы можете легко изменить имя Dockerfile (например, на Dockerfile.dev)
-    image: license_server_app_local:latest
-    container_name: license_server_app_local
+    image: ${CI_REGISTRY_IMAGE:-license_server_app:latest}
+    container_name: license_server_app
     restart: always
     ports:
       - "${SERVER_PORT:-8080}:8080"
@@ -23,23 +21,23 @@ services:
 
   db:
     image: postgres:15
-    container_name: license_server_db_local
+    container_name: license_server_db
     restart: always
     environment:
       - POSTGRES_DB=${POSTGRES_DB:-licenses_db}
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
     volumes:
-      - db_data_local:/var/lib/postgresql/data
+      - db_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-licenses_db}" ]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-licenses_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   backup:
     image: postgres:15
-    container_name: license_server_backup_local
+    container_name: license_server_backup
     restart: always
     volumes:
       - ./backups:/backups
@@ -48,12 +46,16 @@ services:
       - PGDATABASE=${POSTGRES_DB:-licenses_db}
       - PGUSER=${POSTGRES_USER:-postgres}
       - PGPASSWORD=${POSTGRES_PASSWORD:-postgres}
+    # Выполняем дамп напрямую без зависимости от внешнего bash-скрипта
     entrypoint: >
-      sh -c " echo 'Backup scheduler started (daily at midnight)'; while true; do
+      sh -c "
+      echo 'Backup scheduler started (daily at midnight)';
+      while true; do
         FILENAME=/backups/backup_$$(date +%Y%m%d_%H%M%S).sql;
         echo \"Starting backup to $$FILENAME\";
         pg_dump -h db -U ${POSTGRES_USER:-postgres} ${POSTGRES_DB:-licenses_db} > $$FILENAME;
         echo \"Backup completed\";
+        # Удаляем бекапы старше 7 дней
         find /backups -type f -name '*.sql' -mtime +7 -delete;
         sleep 86400;
       done"
@@ -62,4 +64,4 @@ services:
         condition: service_healthy
 
 volumes:
-  db_data_local:
+  db_data:

@@ -37,8 +37,10 @@ void LicenseController::generate(
         QString::fromStdString((*jsonPtr)["issueDate"].asString());
     QString expiredDate =
         QString::fromStdString((*jsonPtr)["expiredDate"].asString());
-    QString note =
-        QString::fromStdString((*jsonPtr)["note"].asString());
+    QString note = "";
+    if (jsonPtr->isMember("note") && !(*jsonPtr)["note"].isNull()) {
+      note = QString::fromStdString((*jsonPtr)["note"].asString());
+    }
 
     if (companyName.isEmpty() || hardwareId.isEmpty() || issueDate.isEmpty() ||
         expiredDate.isEmpty()) {
