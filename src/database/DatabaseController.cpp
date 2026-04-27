@@ -160,13 +160,14 @@ bool DatabaseController::saveLicense(const LicenseRecord &record,
   // 1. Insert into licenses
   QSqlQuery query(db);
   query.prepare("INSERT INTO licenses "
-                "(license_key, company_name, issue_date, expired_date, hwid) "
-                "VALUES (:key, :company, :issue, :expired, :hwid)");
+                "(license_key, company_name, issue_date, expired_date, hwid, note) "
+                "VALUES (:key, :company, :issue, :expired, :hwid, :note)");
   query.bindValue(":key", record.signature);
   query.bindValue(":company", record.companyName);
   query.bindValue(":issue", record.issueDate);
   query.bindValue(":expired", record.expiredDate);
   query.bindValue(":hwid", record.hardwareId);
+  query.bindValue(":note", record.note);
 
   if (!query.exec()) {
     qCritical() << "[DatabaseController] saveLicense exec failed for licenses:"
@@ -232,7 +233,7 @@ DatabaseController::loadAllLicenses(int limit, int offset,
   QString sql = "SELECT l.license_key, l.company_name, l.hwid, l.issue_date, "
                 "l.expired_date, g.generation_date, "
                 "(SELECT string_agg(module_name, ', ') FROM license_modules "
-                "WHERE license_key = l.license_key) as modules "
+                "WHERE license_key = l.license_key) as modules, l.note "
                 "FROM licenses l "
                 "LEFT JOIN generations g ON l.license_key = g.generated_key ";
 
@@ -268,6 +269,7 @@ DatabaseController::loadAllLicenses(int limit, int offset,
     rec.expiredDate = query.value(4).toDate();
     rec.generatedAt = query.value(5).toDateTime();
     rec.modules = query.value(6).toString();
+    rec.note = query.value(7).toString();
     licenses.append(rec);
   }
   return licenses;

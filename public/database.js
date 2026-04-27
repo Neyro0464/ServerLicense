@@ -211,7 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (filtered.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text-muted);">Лицензии не найдены.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--text-muted);">Лицензии не найдены.</td></tr>';
             return;
         }
 
@@ -236,6 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td><div style="display:flex;gap:4px;flex-wrap:wrap;">${modulesBadges}</div></td>
                 <td style="color:var(--text-muted);font-size:0.85rem;">${esc(lic.generatedAt)}</td>
                 <td><div style="font-family:monospace;font-size:0.8rem;color:var(--success);word-break:break-all;max-width:300px;">${esc(lic.signature)}</div></td>
+                <td style="color:var(--text-muted);font-size:0.85rem;max-width:200px;">${esc(lic.note || '—')}</td>
                 ${actionsHtml}
             `;
             tbody.appendChild(tr);
@@ -260,7 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadLicenses() {
         const tbody = document.getElementById('licensesTableBody');
-        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:2rem;"><div class="loader inline-loader" style="margin:0 auto;border-top-color:var(--primary);"></div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:2rem;"><div class="loader inline-loader" style="margin:0 auto;border-top-color:var(--primary);"></div></td></tr>';
 
         try {
             const res = await fetch('/api/licenses');
@@ -343,7 +344,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
         } catch(err) {
-            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--error);">Ошибка при загрузке лицензий.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--error);">Ошибка при загрузке лицензий.</td></tr>';
             showError(err.message);
         }
     }

@@ -13,6 +13,7 @@ struct LicenseRecord {
   QDate expiredDate;
   QString modules;
   QDateTime generatedAt;
+  QString note;
 };
 
 #endif // LICENSERECORD_H

@@ -564,6 +564,7 @@ document.addEventListener('DOMContentLoaded', () => {
             hardwareId: formData.get('hardwareId'),
             issueDate: formData.get('issueDate'),
             expiredDate: formData.get('expiredDate'),
+            note: formData.get('note') || '',
             // Deduplicate modules
             modules: [...new Set(selectedModules)]
         };

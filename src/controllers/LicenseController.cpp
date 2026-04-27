@@ -37,6 +37,8 @@ void LicenseController::generate(
         QString::fromStdString((*jsonPtr)["issueDate"].asString());
     QString expiredDate =
         QString::fromStdString((*jsonPtr)["expiredDate"].asString());
+    QString note =
+        QString::fromStdString((*jsonPtr)["note"].asString());
 
     if (companyName.isEmpty() || hardwareId.isEmpty() || issueDate.isEmpty() ||
         expiredDate.isEmpty()) {
@@ -95,6 +97,7 @@ void LicenseController::generate(
     record.modules = modules.toList().join(", ");
     record.generatedAt = QDateTime::currentDateTime();
     record.signature = signature;
+    record.note = note;
 
     // Validate dates before saving
     if (!record.issueDate.isValid() || !record.expiredDate.isValid()) {
@@ -186,6 +189,7 @@ void LicenseController::getLicenses(
       item["generatedAt"] =
           record.generatedAt.toString("yyyy-MM-dd HH:mm:ss t").toStdString();
       item["signature"] = record.signature.toStdString();
+      item["note"] = record.note.toStdString();
       responseJson.append(item);
     }
 

@@ -74,6 +74,11 @@
             "version": 14,
             "applySql": "ALTER TABLE modules ADD COLUMN IF NOT EXISTS is_selectable BOOLEAN DEFAULT true; ALTER TABLE modules ADD COLUMN IF NOT EXISTS requires_device BOOLEAN DEFAULT false; ALTER TABLE modules ADD COLUMN IF NOT EXISTS dependency_group TEXT; ALTER TABLE modules ADD COLUMN IF NOT EXISTS required_with TEXT[]; ALTER TABLE modules ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true; UPDATE modules SET is_selectable = true WHERE is_selectable IS NULL; UPDATE modules SET requires_device = false WHERE requires_device IS NULL; UPDATE modules SET is_active = true WHERE is_active IS NULL;",
             "revertSql": "ALTER TABLE modules DROP COLUMN IF EXISTS is_selectable; ALTER TABLE modules DROP COLUMN IF EXISTS requires_device; ALTER TABLE modules DROP COLUMN IF EXISTS dependency_group; ALTER TABLE modules DROP COLUMN IF EXISTS required_with; ALTER TABLE modules DROP COLUMN IF EXISTS is_active;"
+        },
+        {
+            "version": 15,
+            "applySql": "ALTER TABLE licenses ADD COLUMN IF NOT EXISTS note TEXT;",
+            "revertSql": "ALTER TABLE licenses DROP COLUMN IF EXISTS note;"
         }
     ]
 }
