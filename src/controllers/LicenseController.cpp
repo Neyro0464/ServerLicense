@@ -38,7 +38,7 @@ void LicenseController::generate(
     QString expiredDate =
         QString::fromStdString((*jsonPtr)["expiredDate"].asString());
     QString note = "";
-    if (jsonPtr->isMember("note") && !(*jsonPtr)["note"].isNull()) {
+    if (jsonPtr->isMember("note") && !(*jsonPtr)["note"].isNull() && (*jsonPtr)["note"].isString()) {
       note = QString::fromStdString((*jsonPtr)["note"].asString());
     }
 

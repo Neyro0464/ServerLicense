@@ -89,6 +89,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.querySelectorAll('.db-btn--manager-only').forEach(el => el.classList.remove('hidden'));
             }
 
+            // Load licenses after role is initialized
+            loadLicenses();
+
         } catch(e) {
             window.location.href = '/login.html';
         }
@@ -119,9 +122,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (name === 'modules' && !modulesLoaded) loadModules();
         });
     });
-
-    // Load licenses by default
-    loadLicenses();
 
     // ─── CONFIRM DELETE MODAL ────────────────────────────────────────────────────
     const confirmDeleteModal = document.getElementById('confirmDeleteModal');
@@ -187,6 +187,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderLicenses() {
         const tbody = document.getElementById('licensesTableBody');
+
+        // Don't render if role is not yet initialized
+        if (!currentUserRole) {
+            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:2rem;"><div class="loader inline-loader" style="margin:0 auto;border-top-color:var(--primary);"></div></td></tr>';
+            return;
+        }
+
         tbody.innerHTML = '';
 
         const fCompany = document.getElementById('filterCompany')?.value.toLowerCase() || '';
