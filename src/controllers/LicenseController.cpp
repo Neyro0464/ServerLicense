@@ -182,8 +182,9 @@ void LicenseController::getLicenses(
       item["expiredDate"] =
           record.expiredDate.toString("dd.MM.yyyy").toStdString();
       item["modules"] = record.modules.toStdString();
+      // Format with timezone abbreviation (e.g., "2026-04-28 08:03:34 MSK")
       item["generatedAt"] =
-          record.generatedAt.toString("yyyy-MM-dd HH:mm:ss").toStdString();
+          record.generatedAt.toString("yyyy-MM-dd HH:mm:ss t").toStdString();
       item["signature"] = record.signature.toStdString();
       responseJson.append(item);
     }

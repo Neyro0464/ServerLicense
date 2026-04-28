@@ -204,12 +204,13 @@ bool DatabaseController::saveLicense(const LicenseRecord &record,
     }
   }
 
-  // 3. Insert into generations
+  // 3. Insert into generations with local timezone
   QSqlQuery genQuery(db);
-  genQuery.prepare("INSERT INTO generations (employee_id, generated_key) "
-                   "VALUES (:emp, :key)");
+  genQuery.prepare("INSERT INTO generations (employee_id, generated_key, generation_date) "
+                   "VALUES (:emp, :key, :gendate)");
   genQuery.bindValue(":emp", employeeId);
   genQuery.bindValue(":key", record.signature);
+  genQuery.bindValue(":gendate", record.generatedAt);
   if (!genQuery.exec()) {
     qCritical()
         << "[DatabaseController] saveLicense exec failed for generations:"
