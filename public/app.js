@@ -114,18 +114,18 @@ document.addEventListener('DOMContentLoaded', () => {
         modulesContainer.innerHTML = '';
         const allowed = new Set(allowedNames);
 
-        // Recursively add all descendants of allowed modules
-        const addDescendants = (moduleName) => {
-            moduleRecords.forEach(m => {
-                if (m.parentModule === moduleName && !allowed.has(m.moduleName)) {
-                    allowed.add(m.moduleName);
-                    addDescendants(m.moduleName); // Recursively add children
-                }
-            });
+        // Add parent modules to maintain hierarchy structure
+        // If a child module is in the config, we need to show its parent for proper display
+        const addParents = (moduleName) => {
+            const mod = moduleRecords.find(m => m.moduleName === moduleName);
+            if (mod && mod.parentModule && !allowed.has(mod.parentModule)) {
+                allowed.add(mod.parentModule);
+                addParents(mod.parentModule); // Recursively add parent chain
+            }
         };
 
-        // Expand allowed set to include all descendants
-        allowedNames.forEach(name => addDescendants(name));
+        // Add all parent modules for proper hierarchy display
+        allowedNames.forEach(name => addParents(name));
 
         const filtered = moduleRecords.filter(m => allowed.has(m.moduleName));
 
