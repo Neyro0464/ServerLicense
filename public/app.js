@@ -124,8 +124,29 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
 
+        // Add all children of selectable parent modules
+        // If a parent module is selectable and in config, show all its children
+        const addChildren = (moduleName) => {
+            const children = moduleRecords.filter(m => m.parentModule === moduleName);
+            children.forEach(child => {
+                if (!allowed.has(child.moduleName)) {
+                    allowed.add(child.moduleName);
+                    // Recursively add children of children
+                    addChildren(child.moduleName);
+                }
+            });
+        };
+
         // Add all parent modules for proper hierarchy display
         allowedNames.forEach(name => addParents(name));
+
+        // Add all children of selectable parents that are in the config
+        allowedNames.forEach(name => {
+            const mod = moduleRecords.find(m => m.moduleName === name);
+            if (mod && mod.isSelectable) {
+                addChildren(name);
+            }
+        });
 
         const filtered = moduleRecords.filter(m => allowed.has(m.moduleName));
 
