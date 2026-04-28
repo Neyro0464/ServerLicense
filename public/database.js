@@ -315,9 +315,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (/^[0-9A-Fa-f\-]+$/.test(hwid)) {
                     // Remove dashes and convert hex to bytes
                     const hexStr = hwid.replace(/-/g, '');
+
+                    // Validate even length
+                    if (hexStr.length % 2 !== 0) {
+                        showError('Hardware ID имеет некорректный формат (нечетное количество hex-символов).');
+                        return;
+                    }
+
                     bytes = new Uint8Array(hexStr.length / 2);
                     for (let i = 0; i < hexStr.length; i += 2) {
-                        bytes[i / 2] = parseInt(hexStr.substr(i, 2), 16);
+                        bytes[i / 2] = parseInt(hexStr.substring(i, i + 2), 16);
                     }
                 } else {
                     // Not hex, use UTF-8 encoding
