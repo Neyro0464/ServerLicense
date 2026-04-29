@@ -9,6 +9,7 @@ struct CompanyRecord {
   QDateTime dateAdded;
   QString city;
   QString contacts; // JSON string
+  QString note;     // Optional note
 };
 
 #endif // COMPANYRECORD_H

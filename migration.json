@@ -79,6 +79,11 @@
             "version": 15,
             "applySql": "ALTER TABLE licenses ADD COLUMN IF NOT EXISTS note TEXT;",
             "revertSql": "ALTER TABLE licenses DROP COLUMN IF EXISTS note;"
+        },
+        {
+            "version": 16,
+            "applySql": "ALTER TABLE companies ADD COLUMN IF NOT EXISTS note TEXT;",
+            "revertSql": "ALTER TABLE companies DROP COLUMN IF EXISTS note;"
         }
     ]
 }

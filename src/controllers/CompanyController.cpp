@@ -18,6 +18,7 @@ void CompanyController::getCompanies(
           comp.dateAdded.toString("yyyy-MM-dd HH:mm:ss").toStdString();
       item["city"] = comp.city.toStdString();
       item["contacts"] = comp.contacts.toStdString();
+      item["note"] = comp.note.toStdString();
       responseJson.append(item);
     }
 
@@ -74,6 +75,12 @@ void CompanyController::addCompany(
       contacts = QString::fromStdString((*jsonPtr)["contacts"].asString());
     }
 
+    // Optional note
+    QString note = "";
+    if (jsonPtr->isMember("note")) {
+      note = QString::fromStdString((*jsonPtr)["note"].asString());
+    }
+
     if (companyName.isEmpty()) {
       Json::Value error;
       error["error"] = "Название компании является обязательным.";
@@ -87,6 +94,7 @@ void CompanyController::addCompany(
     record.companyName = companyName;
     record.city = city;
     record.contacts = contacts;
+    record.note = note;
 
     if (!DatabaseController::instance().addCompany(record)) {
       throw std::runtime_error("Ошибка сохранения компании в базу данных.");
@@ -163,10 +171,16 @@ void CompanyController::updateCompany(
       contacts = QString::fromStdString((*jsonPtr)["contacts"].asString());
     }
 
+    QString note = "";
+    if (jsonPtr->isMember("note")) {
+      note = QString::fromStdString((*jsonPtr)["note"].asString());
+    }
+
     CompanyRecord record;
     record.companyName = newName;
     record.city = city;
     record.contacts = contacts;
+    record.note = note;
 
     if (!DatabaseController::instance().updateCompany(companyName, record)) {
       throw std::runtime_error("Ошибка обновления компании в базе данных.");

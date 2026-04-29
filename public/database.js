@@ -20,6 +20,54 @@ document.addEventListener('DOMContentLoaded', () => {
     const isManager = () => ['senior_manager', 'admin'].includes(currentUserRole);
     const isJuniorOrAbove = () => ['junior_manager', 'senior_manager', 'admin'].includes(currentUserRole);
 
+    // ─── RESIZABLE COLUMNS ──────────────────────────────────────────────────────
+    function makeColumnsResizable(tableSelector) {
+        const table = document.querySelector(tableSelector);
+        if (!table) return;
+
+        const thead = table.querySelector('thead');
+        if (!thead) return;
+
+        const ths = thead.querySelectorAll('th');
+        ths.forEach((th, index) => {
+            // Skip if already has resizer
+            if (th.querySelector('.column-resizer')) return;
+
+            // Skip last column (actions)
+            if (index === ths.length - 1) return;
+
+            const resizer = document.createElement('div');
+            resizer.className = 'column-resizer';
+            th.appendChild(resizer);
+
+            let startX, startWidth;
+
+            resizer.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                startX = e.pageX;
+                startWidth = th.offsetWidth;
+                resizer.classList.add('resizing');
+
+                const onMouseMove = (e) => {
+                    const width = startWidth + (e.pageX - startX);
+                    if (width > 40) { // minimum width
+                        th.style.width = width + 'px';
+                        th.style.minWidth = width + 'px';
+                    }
+                };
+
+                const onMouseUp = () => {
+                    resizer.classList.remove('resizing');
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                };
+
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+        });
+    }
+
 
     // ─── LOGOUT ─────────────────────────────────────────────────────────────────
     if (logoutBtn) {
@@ -92,7 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Load licenses after role is initialized
             loadLicenses();
 
-        } catch(e) {
+        } catch (e) {
             window.location.href = '/login.html';
         }
     }
@@ -235,35 +283,95 @@ document.addEventListener('DOMContentLoaded', () => {
             </div></td>`;
 
             tr.innerHTML = `
-                <td style="font-weight:500;color:#c4b5fd;">${index + 1}</td>
-                <td style="font-weight:500;color:#fff;">${esc(lic.companyName)}</td>
-                <td><span style="font-family:monospace;color:#cbd5e1;">${esc(lic.hardwareId)}</span></td>
-                <td>${esc(lic.issueDate)}</td>
-                <td>${esc(lic.expiredDate)}</td>
-                <td><div style="display:flex;gap:4px;flex-wrap:wrap;">${modulesBadges}</div></td>
-                <td style="color:var(--text-muted);font-size:0.85rem;">${esc(lic.generatedAt)}</td>
-                <td><div style="font-family:monospace;font-size:0.8rem;color:var(--success);word-break:break-all;max-width:300px;">${esc(lic.signature)}</div></td>
-                <td style="color:var(--text-muted);font-size:0.85rem;max-width:200px;">${esc(lic.note || '—')}</td>
+                <td style="font-weight:500;color:#c4b5fd;width:40px;">${index + 1}</td>
+                <td style="font-weight:500;color:#fff;max-width:150px;word-wrap:break-word;white-space:normal;line-height:1.3;" title="${esc(lic.companyName)}">${esc(lic.companyName)}</td>
+                <td><div class="signature-cell" style="font-family:monospace;color:#cbd5e1;font-size:0.8rem;max-width:100px;" data-hwid-id="${lic.id}">${esc(lic.hardwareId)}</div></td>
+                <td style="font-size:0.75rem;white-space:nowrap;max-width:90px;">${esc(lic.issueDate)}</td>
+                <td style="font-size:0.75rem;white-space:nowrap;width:120px;">${esc(lic.expiredDate)}</td>
+                <td style="max-width:150px;"><div style="display:flex;gap:3px;flex-wrap:wrap;">${modulesBadges}</div></td>
+                <td style="color:var(--text-muted);font-size:0.7rem;max-width:100px;word-wrap:break-word;white-space:normal;line-height:1.3;">${esc(lic.generatedAt)}</td>
+                <td><div class="signature-cell" style="font-family:monospace;font-size:0.75rem;color:var(--success);" data-sig-id="${lic.id}">${esc(lic.signature)}</div></td>
+                <td><div class="note-cell" style="color:var(--text-muted);font-size:0.8rem;" data-note-id="${lic.id}">${esc(lic.note || '—')}</div></td>
                 ${actionsHtml}
             `;
             tbody.appendChild(tr);
+        });
+
+        // Add click handlers for expandable cells
+        document.querySelectorAll('.note-cell').forEach(cell => {
+            cell.addEventListener('click', (e) => {
+                e.target.classList.toggle('expanded');
+            });
+        });
+        document.querySelectorAll('.signature-cell').forEach(cell => {
+            cell.addEventListener('click', (e) => {
+                e.target.classList.toggle('expanded');
+            });
+        });
+
+        // Enable column resizing after first render
+        if (filtered.length > 0) {
+            setTimeout(() => makeColumnsResizable('#tabContentLicenses .data-table'), 0);
+        }
+    }
+
+    // ─── FILTER AND SORT CONTROLS ───────────────────────────────────────────────
+    const btnFilterLicenses = document.getElementById('btnFilterLicenses');
+    const btnSortLicenses = document.getElementById('btnSortLicenses');
+    const filterPanel = document.getElementById('filterPanel');
+    const sortPanel = document.getElementById('sortPanel');
+    const btnClearFilters = document.getElementById('btnClearFilters');
+    const sortField = document.getElementById('sortField');
+    const sortDirection = document.getElementById('sortDirection');
+
+    // Set initial sort values
+    if (sortField) sortField.value = currentSort.key;
+    if (sortDirection) sortDirection.value = currentSort.dir;
+
+    if (btnFilterLicenses) {
+        btnFilterLicenses.addEventListener('click', () => {
+            filterPanel.classList.toggle('hidden');
+            if (!sortPanel.classList.contains('hidden')) {
+                sortPanel.classList.add('hidden');
+            }
+        });
+    }
+
+    if (btnSortLicenses) {
+        btnSortLicenses.addEventListener('click', () => {
+            sortPanel.classList.toggle('hidden');
+            if (!filterPanel.classList.contains('hidden')) {
+                filterPanel.classList.add('hidden');
+            }
+        });
+    }
+
+    if (btnClearFilters) {
+        btnClearFilters.addEventListener('click', () => {
+            document.getElementById('filterCompany').value = '';
+            document.getElementById('filterIssueDate').value = '';
+            document.getElementById('filterExpiredDate').value = '';
+            document.getElementById('filterGeneratedAt').value = '';
+            renderLicenses();
+        });
+    }
+
+    if (sortField) {
+        sortField.addEventListener('change', () => {
+            currentSort.key = sortField.value;
+            renderLicenses();
+        });
+    }
+
+    if (sortDirection) {
+        sortDirection.addEventListener('change', () => {
+            currentSort.dir = sortDirection.value;
+            renderLicenses();
         });
     }
 
     document.querySelectorAll('.filter-input').forEach(input => {
         input.addEventListener('input', renderLicenses);
-    });
-    document.querySelectorAll('.sort-icon').forEach(icon => {
-        icon.addEventListener('click', (e) => {
-            const key = e.target.dataset.sort;
-            if (currentSort.key === key) {
-                currentSort.dir = currentSort.dir === 'asc' ? 'desc' : 'asc';
-            } else {
-                currentSort.key = key;
-                currentSort.dir = 'asc';
-            }
-            renderLicenses();
-        });
     });
 
     async function loadLicenses() {
@@ -284,7 +392,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (!r.ok) { throw new Error(await safeDeleteError(r, 'Не удалось удалить лицензию.')); }
                         licensesLoaded = false;
                         await loadLicenses();
-                    } catch(e) { showError(e.message); }
+                    } catch (e) { showError(e.message); }
                 });
             };
 
@@ -313,33 +421,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 const lic = allLicensesData.find(l => String(l.id) === String(id));
                 if (!lic || !lic.hardwareId) return;
 
-                // Convert hardware ID string to binary format
-                // Assuming hardwareId is a hex string (e.g., "A1B2C3D4") or alphanumeric
-                // If it's hex, convert to bytes; otherwise use UTF-8 encoding
-                let bytes;
+                // Convert hardware ID to hex string format for C++ LoadBin compatibility
+                // C++ expects: UTF-8 bytes converted to hex string (text file)
                 const hwid = lic.hardwareId.trim();
 
-                // Check if it's a valid hex string (only 0-9, A-F, a-f, optional dashes)
-                if (/^[0-9A-Fa-f\-]+$/.test(hwid)) {
-                    // Remove dashes and convert hex to bytes
-                    const hexStr = hwid.replace(/-/g, '');
-
-                    // Validate even length
-                    if (hexStr.length % 2 !== 0) {
-                        showError('Hardware ID имеет некорректный формат (нечетное количество hex-символов).');
-                        return;
-                    }
-
-                    bytes = new Uint8Array(hexStr.length / 2);
-                    for (let i = 0; i < hexStr.length; i += 2) {
-                        bytes[i / 2] = parseInt(hexStr.substring(i, i + 2), 16);
-                    }
-                } else {
-                    // Not hex, use UTF-8 encoding
-                    bytes = new TextEncoder().encode(hwid);
+                // Convert string to UTF-8 bytes, then to hex string
+                const utf8Bytes = new TextEncoder().encode(hwid);
+                let hexString = '';
+                for (let i = 0; i < utf8Bytes.length; i++) {
+                    hexString += utf8Bytes[i].toString(16).padStart(2, '0');
                 }
 
-                const blob = new Blob([bytes], { type: 'application/octet-stream' });
+                // Save as text file containing hex string
+                const blob = new Blob([hexString], { type: 'application/octet-stream' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
@@ -350,7 +444,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 URL.revokeObjectURL(url);
             };
 
-        } catch(err) {
+        } catch (err) {
             tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--error);">Ошибка при загрузке лицензий.</td></tr>';
             showError(err.message);
         }
@@ -397,15 +491,30 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div></td>`
                     : '<td class="db-col--manager-only hidden"></td>';
 
+                // Format date with timezone
+                const dateStr = c.dateAdded || '';
+                const dateWithTz = dateStr ? `${dateStr} UTC` : '—';
+
                 tr.innerHTML = `
-                    <td style="font-weight:600;color:#fff;">${esc(c.companyName)}</td>
+                    <td style="font-weight:600;color:#fff;max-width:200px;word-wrap:break-word;white-space:normal;line-height:1.3;">${esc(c.companyName)}</td>
                     <td style="color:var(--text-muted);">${esc(c.city || '—')}</td>
                     <td>${contacts || '<span style="color:var(--text-muted)">—</span>'}</td>
-                    <td style="color:var(--text-muted);font-size:0.85rem;">${esc(c.dateAdded)}</td>
+                    <td style="color:var(--text-muted);font-size:0.85rem;max-width:150px;word-wrap:break-word;white-space:normal;line-height:1.3;">${esc(dateWithTz)}</td>
+                    <td><div class="note-cell" style="color:var(--text-muted);font-size:0.8rem;" data-company-note="${esc(c.companyName)}">${esc(c.note || '—')}</div></td>
                     ${actionsHtml}
                 `;
                 tbody.appendChild(tr);
             });
+
+            // Add click handlers for expandable note cells
+            document.querySelectorAll('[data-company-note]').forEach(cell => {
+                cell.addEventListener('click', (e) => {
+                    e.target.classList.toggle('expanded');
+                });
+            });
+
+            // Enable column resizing
+            setTimeout(() => makeColumnsResizable('#tabContentCompanies .data-table'), 0);
 
             // Event delegation for company actions
             tbody.addEventListener('click', (e) => {
@@ -420,6 +529,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.getElementById('editCompanyOriginalName').value = c.companyName;
                     document.getElementById('editCompanyName').value = c.companyName;
                     document.getElementById('editCompanyCity').value = c.city || '';
+                    document.getElementById('editCompanyNote').value = c.note || '';
                     window.populateContactsEditor('editCompanyContactsEditor', c.contacts);
                     hideFormError('editCompanyError');
                     document.getElementById('editCompanyModal').classList.remove('hidden');
@@ -432,12 +542,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (!r.ok) { throw new Error(await safeDeleteError(r, 'Не удалось удалить компанию.')); }
                             companiesLoaded = false;
                             loadCompanies();
-                        } catch(e2) { showError(e2.message); }
+                        } catch (e2) { showError(e2.message); }
                     });
                 }
             }, /* persistent listener */); // no { once: true } — must work for all rows
 
-        } catch(err) {
+        } catch (err) {
             tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--error);">Ошибка при загрузке компаний.</td></tr>';
             showError(err.message);
         }
@@ -458,7 +568,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = {
             companyName: document.getElementById('editCompanyName').value,
             city: document.getElementById('editCompanyCity').value,
-            contacts: window.readContactsEditor('editCompanyContactsEditor')
+            contacts: window.readContactsEditor('editCompanyContactsEditor'),
+            note: document.getElementById('editCompanyNote').value
         };
 
         try {
@@ -471,7 +582,7 @@ document.addEventListener('DOMContentLoaded', () => {
             editCompanyModal.classList.add('hidden');
             companiesLoaded = false;
             loadCompanies();
-        } catch(err) {
+        } catch (err) {
             showFormError('editCompanyErrorMsg', 'editCompanyError', err.message);
         } finally {
             btn.disabled = false; btn.textContent = 'Сохранить изменения';
@@ -483,6 +594,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('addCompanyDbBtn').addEventListener('click', () => {
         document.getElementById('addDbCompanyName').value = '';
         document.getElementById('addDbCompanyCity').value = '';
+        document.getElementById('addDbCompanyNote').value = '';
         window.populateContactsEditor('addDbCompanyContactsEditor', null);
         hideFormError('addDbCompanyError');
         addCompanyDbModal.classList.remove('hidden');
@@ -499,7 +611,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = {
             companyName: document.getElementById('addDbCompanyName').value,
             city: document.getElementById('addDbCompanyCity').value,
-            contacts: window.readContactsEditor('addDbCompanyContactsEditor')
+            contacts: window.readContactsEditor('addDbCompanyContactsEditor'),
+            note: document.getElementById('addDbCompanyNote').value
         };
 
         try {
@@ -512,7 +625,7 @@ document.addEventListener('DOMContentLoaded', () => {
             addCompanyDbModal.classList.add('hidden');
             companiesLoaded = false;
             loadCompanies();
-        } catch(err) {
+        } catch (err) {
             showFormError('addDbCompanyErrorMsg', 'addDbCompanyError', err.message);
         } finally {
             btn.disabled = false; btn.textContent = 'Добавить компанию';
@@ -590,12 +703,15 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (!r.ok) { throw new Error(await safeDeleteError(r, 'Не удалось удалить сотрудника.')); }
                             employeesLoaded = false;
                             loadEmployees();
-                        } catch(e2) { showError(e2.message); }
+                        } catch (e2) { showError(e2.message); }
                     });
                 }
             }, /* persistent listener */); // no { once: true } — must work for all rows
 
-        } catch(err) {
+            // Enable column resizing
+            setTimeout(() => makeColumnsResizable('#tabContentEmployees .data-table'), 0);
+
+        } catch (err) {
             tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--error);">Ошибка при загрузке сотрудников.</td></tr>';
             showError(err.message);
         }
@@ -654,7 +770,7 @@ document.addEventListener('DOMContentLoaded', () => {
             editEmployeeModal.classList.add('hidden');
             employeesLoaded = false;
             loadEmployees();
-        } catch(err) {
+        } catch (err) {
             showFormError('editEmployeeErrorMsg', 'editEmployeeError', err.message);
         } finally {
             btn.disabled = false;
@@ -672,7 +788,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const res = await fetch('/api/modules');
             if (res.ok) allModulesCache = await res.json();
-        } catch(e) { console.error('fetchAllModules', e); }
+        } catch (e) { console.error('fetchAllModules', e); }
         return allModulesCache;
     }
 
@@ -688,6 +804,7 @@ document.addEventListener('DOMContentLoaded', () => {
             cb.type = 'checkbox';
             cb.value = mod.moduleName;
             cb.checked = selSet.has(mod.moduleName);
+            cb.dataset.parentModule = mod.parentModule || '';
             const span = document.createElement('span');
             span.textContent = (mod.displayLabel || mod.moduleName) + (mod.parentModule ? ` (→ ${mod.parentModule})` : ' [группа]');
             label.appendChild(cb);
@@ -696,7 +813,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (!allModulesCache.length) {
             container.innerHTML = '<span style="color:var(--text-muted);font-size:0.85rem;">Модули не найдены.</span>';
+            return;
         }
+
+        // Add auto-select parent logic
+        const checkboxes = container.querySelectorAll('input[type=checkbox]');
+        checkboxes.forEach(cb => {
+            cb.addEventListener('change', () => {
+                if (cb.checked) {
+                    // Auto-select all parent modules
+                    let parentName = cb.dataset.parentModule;
+                    while (parentName) {
+                        const parentCb = Array.from(checkboxes).find(c => c.value === parentName);
+                        if (parentCb && !parentCb.checked) {
+                            parentCb.checked = true;
+                        }
+                        // Find next parent
+                        const parentMod = allModulesCache.find(m => m.moduleName === parentName);
+                        parentName = parentMod ? parentMod.parentModule : '';
+                    }
+                }
+            });
+        });
     }
 
     function readModuleCheckboxes(containerId) {
@@ -768,12 +906,15 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (!r.ok) throw new Error(await safeDeleteError(r, 'Не удалось удалить конфигурацию.'));
                             configurationsLoaded = false;
                             loadConfigurations();
-                        } catch(e2) { showError(e2.message); }
+                        } catch (e2) { showError(e2.message); }
                     });
                 }
             });
 
-        } catch(err) {
+            // Enable column resizing
+            setTimeout(() => makeColumnsResizable('#tabContentConfigurations .data-table'), 0);
+
+        } catch (err) {
             tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--error);">Ошибка при загрузке конфигураций.</td></tr>';
             showError(err.message);
         }
@@ -815,7 +956,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 addConfigModal.classList.add('hidden');
                 configurationsLoaded = false;
                 loadConfigurations();
-            } catch(err) {
+            } catch (err) {
                 showFormError('addConfigErrorMsg', 'addConfigError', err.message);
             } finally {
                 btn.disabled = false; btn.textContent = 'Добавить конфигурацию';
@@ -852,7 +993,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 editConfigModal.classList.add('hidden');
                 configurationsLoaded = false;
                 loadConfigurations();
-            } catch(err) {
+            } catch (err) {
                 showFormError('editConfigErrorMsg', 'editConfigError', err.message);
             } finally {
                 btn.disabled = false; btn.textContent = 'Сохранить изменения';
@@ -958,14 +1099,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         modulesLoaded = false;
                         loadModules();
-                    } catch(err) {
+                    } catch (err) {
                         showError(err.message);
                     }
                 };
                 document.getElementById('confirmDeleteModal').classList.remove('hidden');
             };
 
-        } catch(err) {
+        } catch (err) {
             tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--error);">Ошибка при загрузке модулей.</td></tr>';
             showError(err.message);
         }
@@ -1024,7 +1165,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 allModulesCache = []; // Clear cache
                 modulesLoaded = false;
                 loadModules();
-            } catch(err) {
+            } catch (err) {
                 showFormError('addModuleErrorMsg', 'addModuleError', err.message);
             } finally {
                 btn.disabled = false; btn.textContent = 'Добавить модуль';
@@ -1071,7 +1212,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 allModulesCache = []; // Clear cache
                 modulesLoaded = false;
                 loadModules();
-            } catch(err) {
+            } catch (err) {
                 showFormError('editModuleErrorMsg', 'editModuleError', err.message);
             } finally {
                 btn.disabled = false; btn.textContent = 'Сохранить изменения';

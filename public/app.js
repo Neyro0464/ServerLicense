@@ -76,6 +76,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const companySelect = document.getElementById('companyName');
+    const hardwareIdInput = document.getElementById('hardwareId');
+
+    // Real-time validation for Hardware ID
+    if (hardwareIdInput) {
+        hardwareIdInput.addEventListener('input', (e) => {
+            const value = e.target.value;
+            const cleanValue = value.replace(/-/g, '');
+
+            // Check if contains only hex characters (after removing dashes)
+            if (cleanValue.length > 0 && !/^[0-9A-Fa-f]+$/.test(cleanValue)) {
+                e.target.style.borderColor = '#ef4444';
+                e.target.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.1)';
+            } else {
+                e.target.style.borderColor = '';
+                e.target.style.boxShadow = '';
+            }
+        });
+    }
 
     // Load companies
     const loadCompanies = async () => {
@@ -140,13 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Add all parent modules for proper hierarchy display
         allowedNames.forEach(name => addParents(name));
 
-        // Add all children of selectable parents that are in the config
-        allowedNames.forEach(name => {
-            const mod = moduleRecords.find(m => m.moduleName === name);
-            if (mod && mod.isSelectable) {
-                addChildren(name);
-            }
-        });
+        // Don't add children - show only modules explicitly in config + their parents
 
         const filtered = moduleRecords.filter(m => allowed.has(m.moduleName));
 
@@ -232,9 +244,14 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             for (const child of children) {
-                if (!child.isSelectable) {
-                    // Non-selectable child - render as nested group
-                    const nestedGroup = renderModuleWithChildren(child, level + 1);
+                // Check if child has its own children
+                const childHasChildren = (childrenMap[child.moduleName] || []).length > 0;
+
+                if (!child.isSelectable || childHasChildren) {
+                    // Non-selectable child OR selectable child with children - render as nested group
+                    // Use same level for selectable children with children, level+1 for non-selectable
+                    const nestedLevel = child.isSelectable ? level : level + 1;
+                    const nestedGroup = renderModuleWithChildren(child, nestedLevel);
                     childrenEl.appendChild(nestedGroup);
                     continue;
                 }
@@ -507,6 +524,16 @@ document.addEventListener('DOMContentLoaded', () => {
             showError('Пожалуйста, заполните поле Hardware ID.');
             return;
         }
+        // Validate Hardware ID format (only hex characters and dashes)
+        const hwValClean = hwVal.replace(/-/g, '');
+        if (!/^[0-9A-Fa-f]+$/.test(hwValClean)) {
+            showError('Hardware ID должен содержать только hex-символы (0-9, A-F) и дефисы.');
+            return;
+        }
+        if (hwValClean.length === 0) {
+            showError('Hardware ID не может быть пустым.');
+            return;
+        }
         if (!issueDateVal) {
             showError('Пожалуйста, укажите дату выдачи.');
             return;
@@ -735,7 +762,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 cfgModalGen.classList.add('hidden');
                 // Reload configs
                 await loadModulesAndConfigs();
-            } catch(err) {
+            } catch (err) {
                 errMsg.textContent = err.message;
                 errBox.classList.remove('hidden');
             } finally {

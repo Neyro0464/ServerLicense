@@ -11,18 +11,69 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <style>
-        .filter-input { width: 100%; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.2); background: rgba(0, 0, 0, 0.2); color: #fff; padding: 4px; font-size: 0.8rem; margin-top: 5px; box-sizing: border-box; }
-        .filter-input::placeholder { color: rgba(255, 255, 255, 0.5); }
-        .sort-icon { cursor: pointer; color: #cbd5e1; font-size: 0.8rem; user-select: none; }
-        .sort-icon:hover { color: #fff; }
+        .filter-input {
+            width: 100%;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(0, 0, 0, 0.2);
+            color: #fff;
+            padding: 4px;
+            font-size: 0.8rem;
+            margin-top: 5px;
+            box-sizing: border-box;
+        }
+
+        .filter-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .sort-icon {
+            cursor: pointer;
+            color: #cbd5e1;
+            font-size: 0.8rem;
+            user-select: none;
+        }
+
+        .sort-icon:hover {
+            color: #fff;
+        }
 
         /* Config modules in table */
-        .config-modules-cell { display: flex; flex-wrap: wrap; gap: 4px; max-width: 320px; }
+        .config-modules-cell {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            max-width: 320px;
+        }
 
         /* Checkbox list for config edit modal */
-        .module-check-list { display: flex; flex-direction: column; gap: 0.4rem; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.75rem; max-height: 200px; overflow-y: auto; }
-        .module-check-item { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; cursor: pointer; color: var(--text-main); }
-        .module-check-item input[type="checkbox"] { accent-color: var(--primary); width: 16px; height: 16px; cursor: pointer; }
+        .module-check-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 0.75rem;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .module-check-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            cursor: pointer;
+            color: var(--text-main);
+        }
+
+        .module-check-item input[type="checkbox"] {
+            accent-color: var(--primary);
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
 
         /* HW ID download button */
         .action-btn--hwid {
@@ -30,8 +81,122 @@
             color: #6ee7b7;
             border: 1px solid rgba(16, 185, 129, 0.25);
         }
+
         .action-btn--hwid:hover {
             background: rgba(16, 185, 129, 0.25);
+        }
+
+        /* Compact licenses table */
+        #licensesTableBody td {
+            padding: 0.75rem 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        #licensesTableBody th {
+            padding: 0.75rem 0.5rem;
+        }
+
+        /* Compact module badges in licenses table */
+        #licensesTableBody .status-badge {
+            padding: 0.15rem 0.5rem;
+            font-size: 0.7rem;
+        }
+
+        /* Resizable columns */
+        .data-table th {
+            position: relative;
+            user-select: none;
+        }
+
+        .column-resizer {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 5px;
+            height: 100%;
+            cursor: col-resize;
+            user-select: none;
+            z-index: 1;
+        }
+
+        .column-resizer:hover {
+            background: rgba(139, 92, 246, 0.3);
+        }
+
+        .column-resizer.resizing {
+            background: rgba(139, 92, 246, 0.5);
+        }
+
+        /* Filter and Sort Panels */
+        .filter-sort-panel {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            padding: 1rem;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .filter-sort-panel .input-group input,
+        .filter-sort-panel .input-group select {
+            padding: 0.6rem 0.75rem;
+            font-size: 0.9rem;
+        }
+
+        /* Expandable note cell */
+        .note-cell {
+            max-width: 200px;
+            max-height: 3em;
+            overflow: hidden;
+            word-wrap: break-word;
+            white-space: normal;
+            line-height: 1.4;
+            cursor: pointer;
+            position: relative;
+            transition: max-height 0.3s ease;
+        }
+        .note-cell.expanded {
+            max-height: none;
+        }
+        .note-cell:not(.expanded)::after {
+            content: '...';
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(to right, transparent, rgba(15, 23, 42, 0.9) 50%);
+            padding-left: 20px;
+        }
+        .note-cell:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        /* Expandable signature cell (horizontal only) */
+        .signature-cell {
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: max-width 0.3s ease;
+        }
+        .signature-cell.expanded {
+            max-width: none;
+            white-space: normal;
+            word-break: break-all;
+        }
+        .signature-cell:hover {
+            background: rgba(255, 255, 255, 0.05);
         }
     </style>
 </head>
@@ -41,7 +206,8 @@
         <!-- Navigation -->
         <nav class="glass-nav">
             <div class="nav-logo">
-                <img src="logo.png" alt="Logo" class="logo-image" style="height: 40px; width: auto; max-width: 150px; object-fit: contain;">
+                <img src="logo.png" alt="Logo" class="logo-image"
+                    style="height: 40px; width: auto; max-width: 150px; object-fit: contain;">
                 <h2>Менеджер лицензий</h2>
             </div>
             <div class="nav-links">
@@ -63,46 +229,104 @@
                 <div class="db-tabs">
                     <button class="db-tab active" id="tabLicenses" data-tab="licenses">Лицензии</button>
                     <button class="db-tab" id="tabCompanies" data-tab="companies">Компании</button>
-                    <button class="db-tab db-tab--admin-only hidden" id="tabConfigurations" data-tab="configurations">Конфигурации</button>
+                    <button class="db-tab db-tab--admin-only hidden" id="tabConfigurations"
+                        data-tab="configurations">Конфигурации</button>
                     <button class="db-tab db-tab--admin-only hidden" id="tabModules" data-tab="modules">Модули</button>
-                    <button class="db-tab db-tab--admin-only hidden" id="tabEmployees" data-tab="employees">Сотрудники</button>
+                    <button class="db-tab db-tab--admin-only hidden" id="tabEmployees"
+                        data-tab="employees">Сотрудники</button>
                 </div>
 
                 <!-- ======================== LICENSES TAB ======================== -->
                 <div class="tab-content" id="tabContentLicenses">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                        <p style="color: var(--text-muted); font-size: 0.9rem;">Все криптографические подписи, выданные клиентам.</p>
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <p style="color: var(--text-muted); font-size: 0.9rem;">Все криптографические подписи, выданные
+                            клиентам.</p>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn-sm" id="btnFilterLicenses"
+                                style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; box-shadow: none;">🔍
+                                Фильтр</button>
+                            <button class="btn-sm" id="btnSortLicenses"
+                                style="background: rgba(139, 92, 246, 0.15); color: #c4b5fd; box-shadow: none;">⇅
+                                Сортировка</button>
+                        </div>
                     </div>
+
+                    <!-- Filter Panel -->
+                    <div id="filterPanel" class="filter-sort-panel hidden" style="margin-bottom: 1rem;">
+                        <div
+                            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                            <div class="input-group">
+                                <label for="filterCompany" style="font-size: 0.8rem;">Компания</label>
+                                <input type="text" id="filterCompany" placeholder="Поиск..." class="filter-input"
+                                    style="margin-top: 0;">
+                            </div>
+                            <div class="input-group">
+                                <label for="filterIssueDate" style="font-size: 0.8rem;">Дата выдачи</label>
+                                <input type="text" id="filterIssueDate" placeholder="Поиск..." class="filter-input"
+                                    style="margin-top: 0;">
+                            </div>
+                            <div class="input-group">
+                                <label for="filterExpiredDate" style="font-size: 0.8rem;">Дата окончания</label>
+                                <input type="text" id="filterExpiredDate" placeholder="Поиск..." class="filter-input"
+                                    style="margin-top: 0;">
+                            </div>
+                            <div class="input-group">
+                                <label for="filterGeneratedAt" style="font-size: 0.8rem;">Создано</label>
+                                <input type="text" id="filterGeneratedAt" placeholder="Поиск..." class="filter-input"
+                                    style="margin-top: 0;">
+                            </div>
+                        </div>
+                        <button class="btn-secondary" id="btnClearFilters"
+                            style="margin-top: 0.75rem; padding: 0.5rem 1rem; font-size: 0.85rem;">Очистить
+                            фильтры</button>
+                    </div>
+
+                    <!-- Sort Panel -->
+                    <div id="sortPanel" class="filter-sort-panel hidden" style="margin-bottom: 1rem;">
+                        <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                            <div class="input-group" style="flex: 1; min-width: 200px;">
+                                <label for="sortField" style="font-size: 0.8rem;">Сортировать по</label>
+                                <select id="sortField" style="margin-top: 0;">
+                                    <option value="generatedAt">Дата создания</option>
+                                    <option value="companyName">Компания</option>
+                                    <option value="issueDate">Дата выдачи</option>
+                                    <option value="expiredDate">Дата окончания</option>
+                                </select>
+                            </div>
+                            <div class="input-group" style="flex: 1; min-width: 150px;">
+                                <label for="sortDirection" style="font-size: 0.8rem;">Направление</label>
+                                <select id="sortDirection" style="margin-top: 0;">
+                                    <option value="desc">По убыванию</option>
+                                    <option value="asc">По возрастанию</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="table-container">
                         <table class="data-table">
                             <thead>
                                 <tr>
-                                    <th>ID</th>
-                                    <th>
-                                        Компания <span class="sort-icon" data-sort="companyName">&#9650;&#9660;</span><br>
-                                        <input type="text" id="filterCompany" placeholder="Фильтр..." class="filter-input">
-                                    </th>
-                                    <th>Hardware ID</th>
-                                    <th>
-                                        Дата выдачи <span class="sort-icon" data-sort="issueDate">&#9650;&#9660;</span><br>
-                                        <input type="text" id="filterIssueDate" placeholder="Фильтр..." class="filter-input">
-                                    </th>
-                                    <th>
-                                        Дата окончания <span class="sort-icon" data-sort="expiredDate">&#9650;&#9660;</span><br>
-                                        <input type="text" id="filterExpiredDate" placeholder="Фильтр..." class="filter-input">
-                                    </th>
-                                    <th>Модули</th>
-                                    <th>
-                                        Создано <span class="sort-icon" data-sort="generatedAt">&#9650;&#9660;</span><br>
-                                        <input type="text" id="filterGeneratedAt" placeholder="Фильтр..." class="filter-input">
-                                    </th>
-                                    <th>Подпись</th>
-                                    <th>Примечание</th>
-                                    <th>Действия</th>
+                                    <th style="width:40px;">ID</th>
+                                    <th style="min-width:100px;max-width:150px;">Компания</th>
+                                    <th style="min-width:90px;">Hardware ID</th>
+                                    <th style="min-width:80px;max-width:90px;">Дата<br>выдачи</th>
+                                    <th style="width:120px;">Дата<br>окончания</th>
+                                    <th style="min-width:120px;">Модули</th>
+                                    <th style="min-width:80px;max-width:100px;">Создано</th>
+                                    <th style="min-width:120px;">Подпись</th>
+                                    <th style="min-width:100px;">Примечание</th>
+                                    <th style="min-width:120px;">Действия</th>
                                 </tr>
                             </thead>
                             <tbody id="licensesTableBody">
-                                <tr><td colspan="9" style="text-align:center;padding:2rem;"><div class="loader inline-loader" style="margin:0 auto;border-top-color:var(--primary);"></div></td></tr>
+                                <tr>
+                                    <td colspan="10" style="text-align:center;padding:2rem;">
+                                        <div class="loader inline-loader"
+                                            style="margin:0 auto;border-top-color:var(--primary);"></div>
+                                    </td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -110,9 +334,11 @@
 
                 <!-- ======================== COMPANIES TAB ======================== -->
                 <div class="tab-content hidden" id="tabContentCompanies">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                         <p style="color: var(--text-muted); font-size: 0.9rem;">Все зарегистрированные компании.</p>
-                        <button class="btn-sm db-btn--manager-only hidden" id="addCompanyDbBtn">+ Добавить компанию</button>
+                        <button class="btn-sm db-btn--manager-only hidden" id="addCompanyDbBtn">+ Добавить
+                            компанию</button>
                     </div>
                     <div class="table-container">
                         <table class="data-table">
@@ -122,11 +348,17 @@
                                     <th>Город</th>
                                     <th>Контакты</th>
                                     <th>Дата добавления</th>
+                                    <th>Примечание</th>
                                     <th class="db-col--manager-only hidden">Действия</th>
                                 </tr>
                             </thead>
                             <tbody id="companiesTableBody">
-                                <tr><td colspan="5" style="text-align:center;padding:2rem;"><div class="loader inline-loader" style="margin:0 auto;border-top-color:var(--primary);"></div></td></tr>
+                                <tr>
+                                    <td colspan="5" style="text-align:center;padding:2rem;">
+                                        <div class="loader inline-loader"
+                                            style="margin:0 auto;border-top-color:var(--primary);"></div>
+                                    </td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -134,8 +366,10 @@
 
                 <!-- ======================== CONFIGURATIONS TAB ======================== -->
                 <div class="tab-content hidden" id="tabContentConfigurations">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                        <p style="color: var(--text-muted); font-size: 0.9rem;">Системные конфигурации и доступные для них модули.</p>
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <p style="color: var(--text-muted); font-size: 0.9rem;">Системные конфигурации и доступные для
+                            них модули.</p>
                         <button class="btn-sm" id="addConfigDbBtn">+ Добавить конфигурацию</button>
                     </div>
                     <div class="table-container">
@@ -150,7 +384,12 @@
                                 </tr>
                             </thead>
                             <tbody id="configurationsTableBody">
-                                <tr><td colspan="5" style="text-align:center;padding:2rem;"><div class="loader inline-loader" style="margin:0 auto;border-top-color:var(--primary);"></div></td></tr>
+                                <tr>
+                                    <td colspan="5" style="text-align:center;padding:2rem;">
+                                        <div class="loader inline-loader"
+                                            style="margin:0 auto;border-top-color:var(--primary);"></div>
+                                    </td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -158,7 +397,8 @@
 
                 <!-- ======================== MODULES TAB ======================== -->
                 <div class="tab-content hidden" id="tabContentModules">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                         <p style="color: var(--text-muted); font-size: 0.9rem;">Управление модулями системы.</p>
                         <button class="btn-sm" id="addModuleBtn">+ Добавить модуль</button>
                     </div>
@@ -174,7 +414,10 @@
                                 </tr>
                             </thead>
                             <tbody id="modulesTableBody">
-                                <tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--text-muted);">Выберите вкладку «Модули» для загрузки.</td></tr>
+                                <tr>
+                                    <td colspan="5" style="text-align:center;padding:2rem;color:var(--text-muted);">
+                                        Выберите вкладку «Модули» для загрузки.</td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -182,8 +425,10 @@
 
                 <!-- ======================== EMPLOYEES TAB ======================== -->
                 <div class="tab-content hidden" id="tabContentEmployees">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                        <p style="color: var(--text-muted); font-size: 0.9rem;">Все зарегистрированные сотрудники (Только для администраторов).</p>
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <p style="color: var(--text-muted); font-size: 0.9rem;">Все зарегистрированные сотрудники
+                            (Только для администраторов).</p>
                         <button class="btn-sm" id="addEmployeeDbBtn">+ Добавить сотрудника</button>
                     </div>
                     <div class="table-container">
@@ -200,7 +445,10 @@
                                 </tr>
                             </thead>
                             <tbody id="employeesTableBody">
-                                <tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text-muted);">Выберите вкладку «Сотрудники» для загрузки.</td></tr>
+                                <tr>
+                                    <td colspan="7" style="text-align:center;padding:2rem;color:var(--text-muted);">
+                                        Выберите вкладку «Сотрудники» для загрузки.</td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -210,7 +458,9 @@
                 <div class="error-toast hidden" id="errorToast">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <path
+                            d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z">
+                        </path>
                         <line x1="12" y1="9" x2="12" y2="13"></line>
                         <line x1="12" y1="17" x2="12.01" y2="17"></line>
                     </svg>
@@ -218,7 +468,7 @@
                 </div>
             </div>
         </main>
-        
+
         <footer style="text-align: center; color: var(--text-muted); font-size: 0.75rem; padding: 10px;">
             <span id="appVersionInfo">Версия сервера: Загрузка...</span>
         </footer>
@@ -227,9 +477,11 @@
     <!-- ======================== EDIT COMPANY MODAL ======================== -->
     <div id="editCompanyModal" class="modal hidden">
         <div class="modal-content glass-panel" style="max-width:500px;margin:10vh auto;position:relative;">
-            <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <div class="modal-header"
+                style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
                 <h2 style="margin:0;font-size:1.5rem;color:#f8fafc;">Редактировать компанию</h2>
-                <span class="close-btn" id="closeEditCompanyModal" style="cursor:pointer;font-size:1.5rem;color:#94a3b8;">&times;</span>
+                <span class="close-btn" id="closeEditCompanyModal"
+                    style="cursor:pointer;font-size:1.5rem;color:#94a3b8;">&times;</span>
             </div>
             <form id="editCompanyForm" class="generate-form">
                 <input type="hidden" id="editCompanyOriginalName">
@@ -244,9 +496,15 @@
                 <div class="input-group">
                     <label>Контакты</label>
                     <div id="editCompanyContactsEditor" class="contacts-editor"></div>
-                    <button type="button" class="contacts-add-btn" onclick="addContactRow('editCompanyContactsEditor')">+ Добавить контакт</button>
+                    <button type="button" class="contacts-add-btn"
+                        onclick="addContactRow('editCompanyContactsEditor')">+ Добавить контакт</button>
                 </div>
-                <div id="editCompanyError" class="error-toast hidden" style="margin-top:0;"><span id="editCompanyErrorMsg">Ошибка</span></div>
+                <div class="input-group">
+                    <label for="editCompanyNote">Примечание</label>
+                    <textarea id="editCompanyNote" rows="3" style="resize: vertical;" placeholder="(Необязательно)"></textarea>
+                </div>
+                <div id="editCompanyError" class="error-toast hidden" style="margin-top:0;"><span
+                        id="editCompanyErrorMsg">Ошибка</span></div>
                 <div class="form-actions" style="margin-top:20px;">
                     <button type="submit" class="btn-primary" id="editCompanySubmitBtn">Сохранить изменения</button>
                 </div>
@@ -257,9 +515,11 @@
     <!-- ======================== ADD COMPANY MODAL (DB page) ======================== -->
     <div id="addCompanyDbModal" class="modal hidden">
         <div class="modal-content glass-panel" style="max-width:500px;margin:10vh auto;position:relative;">
-            <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <div class="modal-header"
+                style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
                 <h2 style="margin:0;font-size:1.5rem;color:#f8fafc;">Добавить новую компанию</h2>
-                <span class="close-btn" id="closeAddCompanyDbModal" style="cursor:pointer;font-size:1.5rem;color:#94a3b8;">&times;</span>
+                <span class="close-btn" id="closeAddCompanyDbModal"
+                    style="cursor:pointer;font-size:1.5rem;color:#94a3b8;">&times;</span>
             </div>
             <form id="addCompanyDbForm" class="generate-form">
                 <div class="input-group">
@@ -273,9 +533,15 @@
                 <div class="input-group">
                     <label>Контакты</label>
                     <div id="addDbCompanyContactsEditor" class="contacts-editor"></div>
-                    <button type="button" class="contacts-add-btn" onclick="addContactRow('addDbCompanyContactsEditor')">+ Добавить контакт</button>
+                    <button type="button" class="contacts-add-btn"
+                        onclick="addContactRow('addDbCompanyContactsEditor')">+ Добавить контакт</button>
                 </div>
-                <div id="addDbCompanyError" class="error-toast hidden" style="margin-top:0;"><span id="addDbCompanyErrorMsg">Ошибка</span></div>
+                <div class="input-group">
+                    <label for="addDbCompanyNote">Примечание</label>
+                    <textarea id="addDbCompanyNote" rows="3" style="resize: vertical;" placeholder="(Необязательно)"></textarea>
+                </div>
+                <div id="addDbCompanyError" class="error-toast hidden" style="margin-top:0;"><span
+                        id="addDbCompanyErrorMsg">Ошибка</span></div>
                 <div class="form-actions" style="margin-top:20px;">
                     <button type="submit" class="btn-primary" id="addDbCompanySubmitBtn">Добавить</button>
                 </div>
@@ -286,9 +552,11 @@
     <!-- ======================== ADD CONFIGURATION MODAL ======================== -->
     <div id="addConfigModal" class="modal hidden">
         <div class="modal-content glass-panel" style="max-width:520px;margin:8vh auto;position:relative;">
-            <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <div class="modal-header"
+                style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
                 <h2 style="margin:0;font-size:1.5rem;color:#f8fafc;">Добавить конфигурацию</h2>
-                <span class="close-btn" id="closeAddConfigModal" style="cursor:pointer;font-size:1.5rem;color:#94a3b8;">&times;</span>
+                <span class="close-btn" id="closeAddConfigModal"
+                    style="cursor:pointer;font-size:1.5rem;color:#94a3b8;">&times;</span>
             </div>
             <form id="addConfigForm" class="generate-form">
                 <div class="input-group">
@@ -305,7 +573,8 @@
                         <span style="color:var(--text-muted);font-size:0.85rem;">Загрузка модулей...</span>
                     </div>
                 </div>
-                <div id="addConfigError" class="error-toast hidden" style="margin-top:0;"><span id="addConfigErrorMsg">Ошибка</span></div>
+                <div id="addConfigError" class="error-toast hidden" style="margin-top:0;"><span
+                        id="addConfigErrorMsg">Ошибка</span></div>
                 <div class="form-actions" style="margin-top:20px;">
                     <button type="submit" class="btn-primary" id="addConfigSubmitBtn">Добавить конфигурацию</button>
                 </div>
@@ -316,9 +585,11 @@
     <!-- ======================== EDIT CONFIGURATION MODAL ======================== -->
     <div id="editConfigModal" class="modal hidden">
         <div class="modal-content glass-panel" style="max-width:520px;margin:8vh auto;position:relative;">
-            <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <div class="modal-header"
+                style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
                 <h2 style="margin:0;font-size:1.5rem;color:#f8fafc;">Редактировать конфигурацию</h2>
-                <span class="close-btn" id="closeEditConfigModal" style="cursor:pointer;font-size:1.5rem;color:#94a3b8;">&times;</span>
+                <span class="close-btn" id="closeEditConfigModal"
+                    style="cursor:pointer;font-size:1.5rem;color:#94a3b8;">&times;</span>
             </div>
             <form id="editConfigForm" class="generate-form">
                 <input type="hidden" id="editConfigId">
@@ -336,7 +607,8 @@
                         <span style="color:var(--text-muted);font-size:0.85rem;">Загрузка модулей...</span>
                     </div>
                 </div>
-                <div id="editConfigError" class="error-toast hidden" style="margin-top:0;"><span id="editConfigErrorMsg">Ошибка</span></div>
+                <div id="editConfigError" class="error-toast hidden" style="margin-top:0;"><span
+                        id="editConfigErrorMsg">Ошибка</span></div>
                 <div class="form-actions" style="margin-top:20px;">
                     <button type="submit" class="btn-primary" id="editConfigSubmitBtn">Сохранить изменения</button>
                 </div>
@@ -347,19 +619,23 @@
     <!-- ======================== ADD MODULE MODAL ======================== -->
     <div id="addModuleModal" class="modal hidden">
         <div class="modal-content glass-panel" style="max-width:600px;margin:8vh auto;position:relative;">
-            <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <div class="modal-header"
+                style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
                 <h2 style="margin:0;font-size:1.5rem;color:#f8fafc;">Добавить модуль</h2>
-                <span class="close-btn" id="closeAddModuleModal" style="cursor:pointer;font-size:1.5rem;color:#94a3b8;">&times;</span>
+                <span class="close-btn" id="closeAddModuleModal"
+                    style="cursor:pointer;font-size:1.5rem;color:#94a3b8;">&times;</span>
             </div>
             <form id="addModuleForm" class="generate-form">
                 <div class="input-row">
                     <div class="input-group half">
                         <label for="addModuleName">Название модуля (ID)</label>
-                        <input type="text" id="addModuleName" required autocomplete="off" placeholder="напр. SDR_receiver">
+                        <input type="text" id="addModuleName" required autocomplete="off"
+                            placeholder="напр. SDR_receiver">
                     </div>
                     <div class="input-group half">
                         <label for="addModuleDisplayLabel">Отображаемое имя</label>
-                        <input type="text" id="addModuleDisplayLabel" required autocomplete="off" placeholder="напр. SDR-приёмник">
+                        <input type="text" id="addModuleDisplayLabel" required autocomplete="off"
+                            placeholder="напр. SDR-приёмник">
                     </div>
                 </div>
                 <div class="input-group">
@@ -374,15 +650,19 @@
                 </div>
                 <div class="input-group">
                     <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
-                        <input type="checkbox" id="addModuleSelectable" checked style="width:18px;height:18px;accent-color:var(--primary);">
+                        <input type="checkbox" id="addModuleSelectable" checked
+                            style="width:18px;height:18px;accent-color:var(--primary);">
                         <span>Выбираемый в лицензиях</span>
                     </label>
                 </div>
                 <div class="input-group">
-                    <label for="addModuleRequiredWith">Обязательные модули <span style="color:var(--text-muted);font-weight:400;">(через запятую)</span></label>
-                    <input type="text" id="addModuleRequiredWith" autocomplete="off" placeholder="напр. SDR_receiver, Tracking">
+                    <label for="addModuleRequiredWith">Обязательные модули <span
+                            style="color:var(--text-muted);font-weight:400;">(через запятую)</span></label>
+                    <input type="text" id="addModuleRequiredWith" autocomplete="off"
+                        placeholder="напр. SDR_receiver, Tracking">
                 </div>
-                <div id="addModuleError" class="error-toast hidden" style="margin-top:0;"><span id="addModuleErrorMsg">Ошибка</span></div>
+                <div id="addModuleError" class="error-toast hidden" style="margin-top:0;"><span
+                        id="addModuleErrorMsg">Ошибка</span></div>
                 <div class="form-actions" style="margin-top:20px;">
                     <button type="submit" class="btn-primary" id="addModuleSubmitBtn">Добавить модуль</button>
                 </div>
@@ -393,15 +673,18 @@
     <!-- ======================== EDIT MODULE MODAL ======================== -->
     <div id="editModuleModal" class="modal hidden">
         <div class="modal-content glass-panel" style="max-width:600px;margin:8vh auto;position:relative;">
-            <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <div class="modal-header"
+                style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
                 <h2 style="margin:0;font-size:1.5rem;color:#f8fafc;">Редактировать модуль</h2>
-                <span class="close-btn" id="closeEditModuleModal" style="cursor:pointer;font-size:1.5rem;color:#94a3b8;">&times;</span>
+                <span class="close-btn" id="closeEditModuleModal"
+                    style="cursor:pointer;font-size:1.5rem;color:#94a3b8;">&times;</span>
             </div>
             <form id="editModuleForm" class="generate-form">
                 <input type="hidden" id="editModuleName">
                 <div class="input-group">
                     <label>Название модуля (ID)</label>
-                    <input type="text" id="editModuleNameDisplay" disabled style="background:rgba(0,0,0,0.3);cursor:not-allowed;">
+                    <input type="text" id="editModuleNameDisplay" disabled
+                        style="background:rgba(0,0,0,0.3);cursor:not-allowed;">
                 </div>
                 <div class="input-group">
                     <label for="editModuleDisplayLabel">Отображаемое имя</label>
@@ -419,15 +702,18 @@
                 </div>
                 <div class="input-group">
                     <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
-                        <input type="checkbox" id="editModuleSelectable" style="width:18px;height:18px;accent-color:var(--primary);">
+                        <input type="checkbox" id="editModuleSelectable"
+                            style="width:18px;height:18px;accent-color:var(--primary);">
                         <span>Выбираемый в лицензиях</span>
                     </label>
                 </div>
                 <div class="input-group">
-                    <label for="editModuleRequiredWith">Обязательные модули <span style="color:var(--text-muted);font-weight:400;">(через запятую)</span></label>
+                    <label for="editModuleRequiredWith">Обязательные модули <span
+                            style="color:var(--text-muted);font-weight:400;">(через запятую)</span></label>
                     <input type="text" id="editModuleRequiredWith" autocomplete="off">
                 </div>
-                <div id="editModuleError" class="error-toast hidden" style="margin-top:0;"><span id="editModuleErrorMsg">Ошибка</span></div>
+                <div id="editModuleError" class="error-toast hidden" style="margin-top:0;"><span
+                        id="editModuleErrorMsg">Ошибка</span></div>
                 <div class="form-actions" style="margin-top:20px;">
                     <button type="submit" class="btn-primary" id="editModuleSubmitBtn">Сохранить изменения</button>
                 </div>
@@ -438,9 +724,12 @@
     <!-- ======================== EDIT/ADD EMPLOYEE MODAL ======================== -->
     <div id="editEmployeeModal" class="modal hidden">
         <div class="modal-content glass-panel" style="max-width:520px;margin:10vh auto;position:relative;">
-            <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-                <h2 id="editEmployeeTitle" style="margin:0;font-size:1.5rem;color:#f8fafc;">Редактировать сотрудника</h2>
-                <span class="close-btn" id="closeEditEmployeeModal" style="cursor:pointer;font-size:1.5rem;color:#94a3b8;">&times;</span>
+            <div class="modal-header"
+                style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <h2 id="editEmployeeTitle" style="margin:0;font-size:1.5rem;color:#f8fafc;">Редактировать сотрудника
+                </h2>
+                <span class="close-btn" id="closeEditEmployeeModal"
+                    style="cursor:pointer;font-size:1.5rem;color:#94a3b8;">&times;</span>
             </div>
             <form id="editEmployeeForm" class="generate-form">
                 <input type="hidden" id="editEmployeeId">
@@ -450,7 +739,9 @@
                         <input type="text" id="editEmpLogin" required autocomplete="off">
                     </div>
                     <div class="input-group half">
-                        <label for="editEmpPassword">Пароль <span style="color:var(--text-muted);font-weight:400;">(оставьте пустым для сохранения)</span></label>
+                        <label for="editEmpPassword">Пароль <span
+                                style="color:var(--text-muted);font-weight:400;">(оставьте пустым для
+                                сохранения)</span></label>
                         <input type="password" id="editEmpPassword" autocomplete="new-password">
                     </div>
                 </div>
@@ -478,7 +769,8 @@
                     <label for="editEmpMiddleName">Отчество</label>
                     <input type="text" id="editEmpMiddleName" autocomplete="off" placeholder="(Необязательно)">
                 </div>
-                <div id="editEmployeeError" class="error-toast hidden" style="margin-top:0;"><span id="editEmployeeErrorMsg">Ошибка</span></div>
+                <div id="editEmployeeError" class="error-toast hidden" style="margin-top:0;"><span
+                        id="editEmployeeErrorMsg">Ошибка</span></div>
                 <div class="form-actions" style="margin-top:20px;">
                     <button type="submit" class="btn-primary" id="editEmployeeSubmitBtn">Сохранить сотрудника</button>
                 </div>
@@ -488,10 +780,12 @@
 
     <!-- ======================== CONFIRM DELETE MODAL ======================== -->
     <div id="confirmDeleteModal" class="modal hidden">
-        <div class="modal-content glass-panel" style="max-width:420px;margin:20vh auto;text-align:center;position:relative;">
+        <div class="modal-content glass-panel"
+            style="max-width:420px;margin:20vh auto;text-align:center;position:relative;">
             <div style="font-size:3rem;margin-bottom:1rem;">⚠️</div>
             <h2 style="color:#f8fafc;margin-bottom:0.75rem;">Подтверждение удаления</h2>
-            <p id="confirmDeleteMsg" style="color:var(--text-muted);margin-bottom:2rem;">Вы уверены? Это действие нельзя будет отменить.</p>
+            <p id="confirmDeleteMsg" style="color:var(--text-muted);margin-bottom:2rem;">Вы уверены? Это действие нельзя
+                будет отменить.</p>
             <div style="display:flex;gap:1rem;">
                 <button class="btn-secondary" id="cancelDeleteBtn" style="flex:1;padding:0.875rem;">Отмена</button>
                 <button class="btn-danger" id="confirmDeleteBtn" style="flex:1;padding:0.875rem;">Удалить</button>

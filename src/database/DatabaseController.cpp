@@ -302,13 +302,14 @@ bool DatabaseController::addCompany(const CompanyRecord &company) {
   if (!db.isOpen())
     return false;
   QSqlQuery query(db);
-  query.prepare("INSERT INTO companies (company_name, city, contacts) VALUES "
-                "(:name, :city, :contacts) "
+  query.prepare("INSERT INTO companies (company_name, city, contacts, note) VALUES "
+                "(:name, :city, :contacts, :note) "
                 "ON CONFLICT (company_name) DO UPDATE SET city = "
-                "EXCLUDED.city, contacts = EXCLUDED.contacts");
+                "EXCLUDED.city, contacts = EXCLUDED.contacts, note = EXCLUDED.note");
   query.bindValue(":name", company.companyName);
   query.bindValue(":city", company.city);
   query.bindValue(":contacts", company.contacts);
+  query.bindValue(":note", company.note);
   return query.exec();
 }
 
@@ -316,7 +317,7 @@ QVector<CompanyRecord> DatabaseController::getAllCompanies() const {
   QVector<CompanyRecord> companies;
   QSqlDatabase db = getConnection();
   QSqlQuery query(db);
-  if (!query.exec("SELECT company_name, date_added, city, contacts FROM "
+  if (!query.exec("SELECT company_name, date_added, city, contacts, note FROM "
                   "companies ORDER BY company_name")) {
     return companies;
   }
@@ -326,6 +327,7 @@ QVector<CompanyRecord> DatabaseController::getAllCompanies() const {
     r.dateAdded = query.value(1).toDateTime();
     r.city = query.value(2).toString();
     r.contacts = query.value(3).toString();
+    r.note = query.value(4).toString();
     companies.append(r);
   }
   return companies;
@@ -599,10 +601,11 @@ bool DatabaseController::updateCompany(const QString &companyName, const Company
   if (!db.isOpen()) return false;
 
   QSqlQuery query(db);
-  query.prepare("UPDATE companies SET company_name = :newName, city = :city, contacts = :contacts WHERE company_name = :oldName");
+  query.prepare("UPDATE companies SET company_name = :newName, city = :city, contacts = :contacts, note = :note WHERE company_name = :oldName");
   query.bindValue(":newName", company.companyName);
   query.bindValue(":city", company.city);
   query.bindValue(":contacts", company.contacts);
+  query.bindValue(":note", company.note);
   query.bindValue(":oldName", companyName);
 
   return query.exec();
