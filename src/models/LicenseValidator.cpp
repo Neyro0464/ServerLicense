@@ -4,6 +4,7 @@
 #include <QByteArray>
 #include <QDebug>
 #include <QVector>
+#include <algorithm>
 
 // Initialize static member
 bool LicenseValidator::s_outputState = true;
@@ -38,6 +39,7 @@ LicenseValidator::GenerateHash(LicenseData data,
   QCryptographicHash hash(hashAlgorythm);
 
   QVector<QString> modules = data.GetModules();
+  std::sort(modules.begin(), modules.end());  // Sort modules for deterministic hash
   QString modulesNames{};
   for (const auto &module : std::as_const(modules)) {
     modulesNames.append(module);
