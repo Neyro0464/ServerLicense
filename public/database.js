@@ -849,22 +849,45 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Add auto-select parent logic
+        // Recursively select all parent modules up the hierarchy
+        const autoSelectAllParents = (moduleName) => {
+            const mod = allModulesCache.find(m => m.moduleName === moduleName);
+            if (!mod || !mod.parentModule) return;
+
+            const checkboxes = container.querySelectorAll('input[type=checkbox]');
+            const parentCb = Array.from(checkboxes).find(c => c.value === mod.parentModule);
+            if (parentCb && !parentCb.checked) {
+                parentCb.checked = true;
+                // Recursively select parent's parents
+                autoSelectAllParents(mod.parentModule);
+            }
+        };
+
+        // Recursively uncheck all descendant modules
+        const autoUnselectAllDescendants = (moduleName) => {
+            const descendants = allModulesCache.filter(m => m.parentModule === moduleName);
+            const checkboxes = container.querySelectorAll('input[type=checkbox]');
+
+            descendants.forEach(desc => {
+                const descCb = Array.from(checkboxes).find(c => c.value === desc.moduleName);
+                if (descCb && descCb.checked) {
+                    descCb.checked = false;
+                    // Recursively uncheck descendants of descendants
+                    autoUnselectAllDescendants(desc.moduleName);
+                }
+            });
+        };
+
+        // Add event listeners
         const checkboxes = container.querySelectorAll('input[type=checkbox]');
         checkboxes.forEach(cb => {
             cb.addEventListener('change', () => {
                 if (cb.checked) {
-                    // Auto-select all parent modules
-                    let parentName = cb.dataset.parentModule;
-                    while (parentName) {
-                        const parentCb = Array.from(checkboxes).find(c => c.value === parentName);
-                        if (parentCb && !parentCb.checked) {
-                            parentCb.checked = true;
-                        }
-                        // Find next parent
-                        const parentMod = allModulesCache.find(m => m.moduleName === parentName);
-                        parentName = parentMod ? parentMod.parentModule : '';
-                    }
+                    // Auto-select all parents up the hierarchy
+                    autoSelectAllParents(cb.value);
+                } else {
+                    // Uncheck all descendants recursively
+                    autoUnselectAllDescendants(cb.value);
                 }
             });
         });

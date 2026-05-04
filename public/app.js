@@ -338,6 +338,42 @@ document.addEventListener('DOMContentLoaded', () => {
             (cbByKey[key] || []).forEach(cb => { if (cb !== originCb) cb.checked = checked; });
         };
 
+        // Recursively select all parent modules up the hierarchy
+        const autoSelectAllParents = (moduleName) => {
+            const mod = moduleByKey[moduleName];
+            if (!mod || !mod.parentModule) return;
+
+            const parentCbs = cbByKey[mod.parentModule];
+            if (parentCbs) {
+                parentCbs.forEach(cb => {
+                    if (!cb.checked) {
+                        cb.checked = true;
+                        syncKey(mod.parentModule, true, cb);
+                        // Recursively select parent's parents
+                        autoSelectAllParents(mod.parentModule);
+                    }
+                });
+            }
+        };
+
+        // Recursively uncheck all descendant modules
+        const autoUnselectAllDescendants = (moduleName) => {
+            const descendants = allModulesData.filter(m => m.parentModule === moduleName);
+            descendants.forEach(desc => {
+                const descCbs = cbByKey[desc.moduleName];
+                if (descCbs) {
+                    descCbs.forEach(cb => {
+                        if (cb.checked) {
+                            cb.checked = false;
+                            syncKey(desc.moduleName, false, cb);
+                            // Recursively uncheck descendants of descendants
+                            autoUnselectAllDescendants(desc.moduleName);
+                        }
+                    });
+                }
+            });
+        };
+
         const autoSelectRequired = (moduleName) => {
             const mod = moduleByKey[moduleName];
             if (!mod || !mod.requiredWith || mod.requiredWith.length === 0) return;
@@ -351,15 +387,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             syncKey(reqName, true, cb);
                             // Recursively check required dependencies
                             autoSelectRequired(reqName);
-                            // Check parent if child is selected
-                            if (cb.dataset.groupChild) {
-                                const parentKey = cb.dataset.groupChild;
-                                const parentMeta = groupMeta.find(m => m.parentKey === parentKey);
-                                if (parentMeta && parentMeta.parentCb) {
-                                    parentMeta.parentCb.checked = true;
-                                    syncKey(parentKey, true, parentMeta.parentCb);
-                                }
-                            }
+                            // Check all parents if child is selected
+                            autoSelectAllParents(reqName);
                         }
                     });
                 }
@@ -370,13 +399,13 @@ document.addEventListener('DOMContentLoaded', () => {
             for (const childCb of meta.childCbs) {
                 childCb.addEventListener('change', () => {
                     if (childCb.checked) {
-                        // Auto-select parent
-                        if (meta.parentCb) {
-                            meta.parentCb.checked = true;
-                            syncKey(meta.parentKey, true, meta.parentCb);
-                        }
+                        // Auto-select all parents up the hierarchy
+                        autoSelectAllParents(childCb.value);
                         // Auto-select required modules
                         autoSelectRequired(childCb.value);
+                    } else {
+                        // Uncheck all descendants
+                        autoUnselectAllDescendants(childCb.value);
                     }
                     syncKey(childCb.value, childCb.checked, childCb);
                 });
@@ -384,12 +413,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (meta.parentCb) {
                 meta.parentCb.addEventListener('change', () => {
-                    if (!meta.parentCb.checked) {
-                        // Uncheck all children
-                        meta.childCbs.forEach(cb => {
-                            cb.checked = false;
-                            syncKey(cb.value, false, cb);
-                        });
+                    if (meta.parentCb.checked) {
+                        // Auto-select all parents up the hierarchy
+                        autoSelectAllParents(meta.parentKey);
+                    } else {
+                        // Uncheck all descendants recursively
+                        autoUnselectAllDescendants(meta.parentKey);
                     }
                     syncKey(meta.parentKey, meta.parentCb.checked, meta.parentCb);
                 });
