@@ -613,7 +613,7 @@ body::after {
     margin-bottom: -1px;
 }
 
-.db-tab:hover {
+.db-tab:hover:not(:disabled) {
     color: var(--text-main);
     background: rgba(255, 255, 255, 0.04);
 }
@@ -622,6 +622,11 @@ body::after {
     color: #c4b5fd;
     border-bottom: 2px solid var(--primary);
     background: rgba(139, 92, 246, 0.08);
+}
+
+.db-tab:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
 
 .tab-content {
@@ -641,13 +646,19 @@ body::after {
     white-space: nowrap;
 }
 
+.action-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    filter: grayscale(0.5);
+}
+
 .action-btn--edit {
     background: rgba(139, 92, 246, 0.15);
     color: #c4b5fd;
     border: 1px solid rgba(139, 92, 246, 0.25);
 }
 
-.action-btn--edit:hover {
+.action-btn--edit:hover:not(:disabled) {
     background: rgba(139, 92, 246, 0.3);
 }
 
@@ -657,7 +668,7 @@ body::after {
     border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
-.action-btn--delete:hover {
+.action-btn--delete:hover:not(:disabled) {
     background: rgba(239, 68, 68, 0.25);
 }
 
@@ -674,6 +685,18 @@ body::after {
     font-family: inherit;
     transition: all 0.2s;
     box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+}
+
+.btn-sm:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+}
+
+.btn-sm:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
 .btn-sm:hover {
@@ -695,8 +718,14 @@ body::after {
     transition: all 0.2s;
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover:not(:disabled) {
     background: rgba(255, 255, 255, 0.1);
+}
+
+.btn-secondary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: rgba(255, 255, 255, 0.03);
 }
 
 /* ─── Danger Button ──────────────────────────────────────────────────────── */

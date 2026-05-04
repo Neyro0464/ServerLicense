@@ -9,16 +9,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const logoutBtn = document.getElementById('logoutBtn');
 
     let currentUserRole = '';
+    let userPermissions = [];  // user permissions from API
     let deleteCallback = null;
 
     // ─── Data stores (avoid JSON-in-onclick issues) ───────────────────────────
     const companyStore = new Map(); // companyName -> record
     const employeeStore = new Map(); // employeeId -> record
 
-    // ─── ROLE HELPERS ───────────────────────────────────────────────────────────
-    const isAdmin = () => currentUserRole === 'admin';
-    const isManager = () => ['senior_manager', 'admin'].includes(currentUserRole);
-    const isJuniorOrAbove = () => ['junior_manager', 'senior_manager', 'admin'].includes(currentUserRole);
+    // ─── PERMISSION HELPERS ─────────────────────────────────────────────────────
+    const hasPermission = (perm) => userPermissions.includes(perm);
 
     // ─── RESIZABLE COLUMNS ──────────────────────────────────────────────────────
     function makeColumnsResizable(tableSelector) {
@@ -113,6 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!res.ok) { window.location.href = '/login.html'; return; }
             const data = await res.json();
             currentUserRole = data.role;
+            userPermissions = data.permissions || [];
 
             fetch('/api/version').then(async resVersion => {
                 if (resVersion.ok) {
@@ -122,20 +122,53 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            // Show/hide tabs
-            if (isAdmin()) {
-                document.getElementById('tabEmployees').classList.remove('hidden');
-                document.getElementById('tabConfigurations').classList.remove('hidden');
-                document.getElementById('tabModules').classList.remove('hidden');
+            // Show/hide tabs based on permissions
+            const tabEmployees = document.getElementById('tabEmployees');
+            const tabConfigurations = document.getElementById('tabConfigurations');
+            const tabModules = document.getElementById('tabModules');
+
+            if (hasPermission('view_employees')) {
+                tabEmployees.classList.remove('hidden');
+                tabEmployees.disabled = false;
+                tabEmployees.title = 'Управление сотрудниками';
+            } else {
+                tabEmployees.disabled = true;
+                tabEmployees.title = 'Требуются права администратора';
             }
 
-            // Show/hide manager-only action columns & buttons
-            if (isManager()) {
+            if (hasPermission('edit_config')) {
+                tabConfigurations.classList.remove('hidden');
+                tabConfigurations.disabled = false;
+                tabConfigurations.title = 'Управление конфигурациями';
+            } else {
+                tabConfigurations.disabled = true;
+                tabConfigurations.title = 'Требуются права администратора';
+            }
+
+            if (hasPermission('view_modules')) {
+                tabModules.classList.remove('hidden');
+                tabModules.disabled = false;
+                tabModules.title = 'Управление модулями';
+            } else {
+                tabModules.disabled = true;
+                tabModules.title = 'Требуются права администратора';
+            }
+
+            // Show/hide manager-only action columns
+            if (hasPermission('edit_company') || hasPermission('delete_company')) {
                 document.querySelectorAll('.db-col--manager-only').forEach(el => el.classList.remove('hidden'));
             }
-            if (isJuniorOrAbove()) {
-                document.querySelectorAll('.db-btn--manager-only').forEach(el => el.classList.remove('hidden'));
-            }
+
+            // Configure manager-only buttons
+            document.querySelectorAll('.db-btn--manager-only').forEach(btn => {
+                if (hasPermission('add_company')) {
+                    btn.classList.remove('hidden');
+                    btn.disabled = false;
+                } else {
+                    btn.disabled = true;
+                    btn.title = 'Требуются права Junior Manager или выше';
+                }
+            });
 
             // Load licenses after role is initialized
             loadLicenses();
@@ -278,8 +311,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const actionsHtml = `<td><div style="display:flex;gap:0.5rem;align-items:center;">
                 <button class="action-btn" onclick="window.__downloadLicense('${lic.id}')" style="background:var(--primary);color:#fff;border-color:transparent;" title="Скачать JSON">💾</button>
-                ${isAdmin() ? `<button class="action-btn action-btn--hwid" onclick="window.__downloadHwId('${lic.id}')" title="Скачать Hardware ID (.bin)">💻</button>` : ''}
-                ${isManager() ? `<button class="action-btn action-btn--delete" onclick="window.__deleteLicense('${lic.id}')">🗑️</button>` : ''}
+                ${hasPermission('view_modules') ? `<button class="action-btn action-btn--hwid" onclick="window.__downloadHwId('${lic.id}')" title="Скачать Hardware ID (.bin)">💻</button>` : ''}
+                ${hasPermission('delete_license') ? `<button class="action-btn action-btn--delete" onclick="window.__deleteLicense('${lic.id}')">🗑️</button>` : ''}
             </div></td>`;
 
             tr.innerHTML = `
@@ -484,10 +517,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 } catch { contacts = esc(c.contacts || ''); }
 
-                const actionsHtml = isManager()
+                const actionsHtml = hasPermission('edit_company') || hasPermission('delete_company')
                     ? `<td><div style="display:flex;gap:0.5rem;">
-                        <button class="action-btn action-btn--edit" data-action="edit-company" data-key="${esc(c.companyName)}">✏️ Редактировать</button>
-                        <button class="action-btn action-btn--delete" data-action="delete-company" data-key="${esc(c.companyName)}">🗑️ Удалить</button>
+                        <button class="action-btn action-btn--edit" data-action="edit-company" data-key="${esc(c.companyName)}" ${hasPermission('edit_company') ? '' : 'disabled title="Требуются права Senior Manager или выше"'}>✏️ Редактировать</button>
+                        <button class="action-btn action-btn--delete" data-action="delete-company" data-key="${esc(c.companyName)}" ${hasPermission('delete_company') ? '' : 'disabled title="Требуются права Senior Manager или выше"'}>🗑️ Удалить</button>
                     </div></td>`
                     : '<td class="db-col--manager-only hidden"></td>';
 

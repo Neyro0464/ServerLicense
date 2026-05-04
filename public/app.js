@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const logoutBtn = document.getElementById('logoutBtn');
 
     let currentUserRole = '';
+    let userPermissions = [];  // user permissions from API
     let allConfigsData = [];  // cached configurations
     let allModulesData = [];  // cached modules from API
 
@@ -26,20 +27,40 @@ document.addEventListener('DOMContentLoaded', () => {
         boxEl.classList.remove('hidden');
     }
 
-    // Check if logged in & get role
+    // Helper function to check permissions
+    const hasPermission = (perm) => userPermissions.includes(perm);
+
+    // Check if logged in & get role + permissions
     fetch('/api/me').then(async res => {
         if (!res.ok) {
             window.location.href = '/login.html';
         } else {
             const data = await res.json();
             currentUserRole = data.role;
-            const isJuniorOrAbove = ['junior_manager', 'senior_manager', 'admin'].includes(currentUserRole);
-            if (!isJuniorOrAbove && document.getElementById('openAddCompanyBtn')) {
-                document.getElementById('openAddCompanyBtn').classList.add('hidden');
+            userPermissions = data.permissions || [];
+
+            // Configure "Add Company" button
+            const addCompanyBtn = document.getElementById('openAddCompanyBtn');
+            if (addCompanyBtn) {
+                if (hasPermission('add_company')) {
+                    addCompanyBtn.disabled = false;
+                    addCompanyBtn.title = 'Добавить новую компанию';
+                } else {
+                    addCompanyBtn.disabled = true;
+                    addCompanyBtn.title = 'Требуются права Junior Manager или выше';
+                }
             }
-            // Show config add button only for admin
-            if (currentUserRole === 'admin' && document.getElementById('openAddConfigBtn')) {
-                document.getElementById('openAddConfigBtn').classList.remove('hidden');
+
+            // Configure "Add Config" button
+            const addConfigBtn = document.getElementById('openAddConfigBtn');
+            if (addConfigBtn) {
+                if (hasPermission('add_config')) {
+                    addConfigBtn.disabled = false;
+                    addConfigBtn.title = 'Добавить новую конфигурацию';
+                } else {
+                    addConfigBtn.disabled = true;
+                    addConfigBtn.title = 'Требуются права администратора';
+                }
             }
         }
     });

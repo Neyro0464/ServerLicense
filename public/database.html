@@ -229,11 +229,11 @@
                 <div class="db-tabs">
                     <button class="db-tab active" id="tabLicenses" data-tab="licenses">Лицензии</button>
                     <button class="db-tab" id="tabCompanies" data-tab="companies">Компании</button>
-                    <button class="db-tab db-tab--admin-only hidden" id="tabConfigurations"
-                        data-tab="configurations">Конфигурации</button>
-                    <button class="db-tab db-tab--admin-only hidden" id="tabModules" data-tab="modules">Модули</button>
-                    <button class="db-tab db-tab--admin-only hidden" id="tabEmployees"
-                        data-tab="employees">Сотрудники</button>
+                    <button class="db-tab db-tab--admin-only" id="tabConfigurations"
+                        data-tab="configurations" disabled title="Загрузка...">Конфигурации</button>
+                    <button class="db-tab db-tab--admin-only" id="tabModules" data-tab="modules" disabled title="Загрузка...">Модули</button>
+                    <button class="db-tab db-tab--admin-only" id="tabEmployees"
+                        data-tab="employees" disabled title="Загрузка...">Сотрудники</button>
                 </div>
 
                 <!-- ======================== LICENSES TAB ======================== -->
@@ -337,7 +337,7 @@
                     <div
                         style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                         <p style="color: var(--text-muted); font-size: 0.9rem;">Все зарегистрированные компании.</p>
-                        <button class="btn-sm db-btn--manager-only hidden" id="addCompanyDbBtn">+ Добавить
+                        <button class="btn-sm db-btn--manager-only" id="addCompanyDbBtn" disabled title="Загрузка...">+ Добавить
                             компанию</button>
                     </div>
                     <div class="table-container">

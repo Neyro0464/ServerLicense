@@ -59,7 +59,47 @@ void AuthController::me(
   if (req->session()->find("user_id")) {
     Json::Value ret;
     ret["username"] = req->session()->get<std::string>("user_id");
-    ret["role"] = req->session()->get<std::string>("role");
+    std::string role = req->session()->get<std::string>("role");
+    ret["role"] = role;
+
+    // Add permissions based on role
+    Json::Value permissions(Json::arrayValue);
+
+    // Base permissions for all authenticated users
+    permissions.append("view_licenses");
+
+    // Junior manager and above
+    if (role == "junior_manager" || role == "senior_manager" || role == "admin") {
+      permissions.append("create_license");
+      permissions.append("add_company");
+      permissions.append("view_companies");
+      permissions.append("view_database");
+    }
+
+    // Senior manager and above
+    if (role == "senior_manager" || role == "admin") {
+      permissions.append("edit_company");
+      permissions.append("delete_company");
+      permissions.append("edit_license");
+      permissions.append("delete_license");
+    }
+
+    // Admin only
+    if (role == "admin") {
+      permissions.append("add_config");
+      permissions.append("edit_config");
+      permissions.append("delete_config");
+      permissions.append("view_modules");
+      permissions.append("add_module");
+      permissions.append("edit_module");
+      permissions.append("delete_module");
+      permissions.append("view_employees");
+      permissions.append("add_employee");
+      permissions.append("edit_employee");
+      permissions.append("delete_employee");
+    }
+
+    ret["permissions"] = permissions;
     auto res = HttpResponse::newHttpJsonResponse(ret);
     callback(res);
   } else {
