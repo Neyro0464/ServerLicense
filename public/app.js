@@ -473,6 +473,7 @@ document.addEventListener('DOMContentLoaded', () => {
     openAddCompanyBtn.addEventListener('click', () => {
         document.getElementById('newCompanyName').value = '';
         document.getElementById('newCompanyCity').value = '';
+        document.getElementById('newCompanyNote').value = '';
         // Initialize contacts editor with one empty row
         if (window.populateContactsEditor) {
             window.populateContactsEditor('addCompanyContactsEditor', null);
@@ -499,7 +500,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = {
             companyName: formData.get('companyName'),
             city: formData.get('city'),
-            contacts: window.readContactsEditor ? window.readContactsEditor('addCompanyContactsEditor') : '[]'
+            contacts: window.readContactsEditor ? window.readContactsEditor('addCompanyContactsEditor') : '[]',
+            note: document.getElementById('newCompanyNote').value || ''
         };
 
         try {
@@ -525,6 +527,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Reset fields manually (cannot use form.reset() as contacts editor is not a form input)
             document.getElementById('newCompanyName').value = '';
             document.getElementById('newCompanyCity').value = '';
+            document.getElementById('newCompanyNote').value = '';
             if (window.populateContactsEditor) window.populateContactsEditor('addCompanyContactsEditor', null);
             addCompanyModal.classList.add('hidden');
 
