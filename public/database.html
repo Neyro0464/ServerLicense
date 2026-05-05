@@ -337,9 +337,64 @@
                     <div
                         style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                         <p style="color: var(--text-muted); font-size: 0.9rem;">Все зарегистрированные компании.</p>
-                        <button class="btn-sm db-btn--manager-only" id="addCompanyDbBtn" disabled title="Загрузка...">+ Добавить
-                            компанию</button>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <button class="btn-sm" id="btnFilterCompanies"
+                                style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; box-shadow: none;">🔍
+                                Фильтр</button>
+                            <button class="btn-sm" id="btnSortCompanies"
+                                style="background: rgba(139, 92, 246, 0.15); color: #c4b5fd; box-shadow: none;">⇅
+                                Сортировка</button>
+                            <button class="btn-sm db-btn--manager-only" id="addCompanyDbBtn" disabled title="Загрузка...">+ Добавить
+                                компанию</button>
+                        </div>
                     </div>
+
+                    <!-- Filter Panel -->
+                    <div id="filterPanelCompanies" class="filter-sort-panel hidden" style="margin-bottom: 1rem;">
+                        <div
+                            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                            <div class="input-group">
+                                <label for="filterCompanyName" style="font-size: 0.8rem;">Название компании</label>
+                                <input type="text" id="filterCompanyName" placeholder="Поиск..." class="filter-input filter-input-companies"
+                                    style="margin-top: 0;">
+                            </div>
+                            <div class="input-group">
+                                <label for="filterCity" style="font-size: 0.8rem;">Город</label>
+                                <input type="text" id="filterCity" placeholder="Поиск..." class="filter-input filter-input-companies"
+                                    style="margin-top: 0;">
+                            </div>
+                            <div class="input-group">
+                                <label for="filterCompanyNote" style="font-size: 0.8rem;">Примечание</label>
+                                <input type="text" id="filterCompanyNote" placeholder="Поиск..." class="filter-input filter-input-companies"
+                                    style="margin-top: 0;">
+                            </div>
+                        </div>
+                        <button class="btn-secondary" id="btnClearFiltersCompanies"
+                            style="margin-top: 0.75rem; padding: 0.5rem 1rem; font-size: 0.85rem;">Очистить
+                            фильтры</button>
+                    </div>
+
+                    <!-- Sort Panel -->
+                    <div id="sortPanelCompanies" class="filter-sort-panel hidden" style="margin-bottom: 1rem;">
+                        <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                            <div class="input-group" style="flex: 1; min-width: 200px;">
+                                <label for="sortFieldCompanies" style="font-size: 0.8rem;">Сортировать по</label>
+                                <select id="sortFieldCompanies" style="margin-top: 0;">
+                                    <option value="companyName">Название компании</option>
+                                    <option value="city">Город</option>
+                                    <option value="dateAdded">Дата добавления</option>
+                                </select>
+                            </div>
+                            <div class="input-group" style="flex: 1; min-width: 150px;">
+                                <label for="sortDirectionCompanies" style="font-size: 0.8rem;">Направление</label>
+                                <select id="sortDirectionCompanies" style="margin-top: 0;">
+                                    <option value="asc">По возрастанию</option>
+                                    <option value="desc">По убыванию</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="table-container">
                         <table class="data-table">
                             <thead>
@@ -370,8 +425,57 @@
                         style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                         <p style="color: var(--text-muted); font-size: 0.9rem;">Системные конфигурации и доступные для
                             них модули.</p>
-                        <button class="btn-sm" id="addConfigDbBtn">+ Добавить конфигурацию</button>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <button class="btn-sm" id="btnFilterConfigurations"
+                                style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; box-shadow: none;">🔍
+                                Фильтр</button>
+                            <button class="btn-sm" id="btnSortConfigurations"
+                                style="background: rgba(139, 92, 246, 0.15); color: #c4b5fd; box-shadow: none;">⇅
+                                Сортировка</button>
+                            <button class="btn-sm" id="addConfigDbBtn">+ Добавить конфигурацию</button>
+                        </div>
                     </div>
+
+                    <!-- Filter Panel -->
+                    <div id="filterPanelConfigurations" class="filter-sort-panel hidden" style="margin-bottom: 1rem;">
+                        <div
+                            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                            <div class="input-group">
+                                <label for="filterConfigName" style="font-size: 0.8rem;">Название конфигурации</label>
+                                <input type="text" id="filterConfigName" placeholder="Поиск..." class="filter-input filter-input-configurations"
+                                    style="margin-top: 0;">
+                            </div>
+                            <div class="input-group">
+                                <label for="filterConfigDesc" style="font-size: 0.8rem;">Описание</label>
+                                <input type="text" id="filterConfigDesc" placeholder="Поиск..." class="filter-input filter-input-configurations"
+                                    style="margin-top: 0;">
+                            </div>
+                        </div>
+                        <button class="btn-secondary" id="btnClearFiltersConfigurations"
+                            style="margin-top: 0.75rem; padding: 0.5rem 1rem; font-size: 0.85rem;">Очистить
+                            фильтры</button>
+                    </div>
+
+                    <!-- Sort Panel -->
+                    <div id="sortPanelConfigurations" class="filter-sort-panel hidden" style="margin-bottom: 1rem;">
+                        <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                            <div class="input-group" style="flex: 1; min-width: 200px;">
+                                <label for="sortFieldConfigurations" style="font-size: 0.8rem;">Сортировать по</label>
+                                <select id="sortFieldConfigurations" style="margin-top: 0;">
+                                    <option value="configName">Название конфигурации</option>
+                                    <option value="moduleCount">Количество модулей</option>
+                                </select>
+                            </div>
+                            <div class="input-group" style="flex: 1; min-width: 150px;">
+                                <label for="sortDirectionConfigurations" style="font-size: 0.8rem;">Направление</label>
+                                <select id="sortDirectionConfigurations" style="margin-top: 0;">
+                                    <option value="asc">По возрастанию</option>
+                                    <option value="desc">По убыванию</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="table-container">
                         <table class="data-table">
                             <thead>
@@ -400,8 +504,73 @@
                     <div
                         style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                         <p style="color: var(--text-muted); font-size: 0.9rem;">Управление модулями системы.</p>
-                        <button class="btn-sm" id="addModuleBtn">+ Добавить модуль</button>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <button class="btn-sm" id="btnFilterModules"
+                                style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; box-shadow: none;">🔍
+                                Фильтр</button>
+                            <button class="btn-sm" id="btnSortModules"
+                                style="background: rgba(139, 92, 246, 0.15); color: #c4b5fd; box-shadow: none;">⇅
+                                Сортировка</button>
+                            <button class="btn-sm" id="addModuleBtn">+ Добавить модуль</button>
+                        </div>
                     </div>
+
+                    <!-- Filter Panel -->
+                    <div id="filterPanelModules" class="filter-sort-panel hidden" style="margin-bottom: 1rem;">
+                        <div
+                            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                            <div class="input-group">
+                                <label for="filterModuleName" style="font-size: 0.8rem;">Название модуля</label>
+                                <input type="text" id="filterModuleName" placeholder="Поиск..." class="filter-input filter-input-modules"
+                                    style="margin-top: 0;">
+                            </div>
+                            <div class="input-group">
+                                <label for="filterDisplayLabel" style="font-size: 0.8rem;">Отображаемое имя</label>
+                                <input type="text" id="filterDisplayLabel" placeholder="Поиск..." class="filter-input filter-input-modules"
+                                    style="margin-top: 0;">
+                            </div>
+                            <div class="input-group">
+                                <label for="filterParentModule" style="font-size: 0.8rem;">Родительский модуль</label>
+                                <select id="filterParentModule" class="filter-input" style="margin-top: 0;">
+                                    <option value="">Все</option>
+                                    <option value="root">Только корневые</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label for="filterSelectable" style="font-size: 0.8rem;">Выбираемый</label>
+                                <select id="filterSelectable" class="filter-input" style="margin-top: 0;">
+                                    <option value="">Все</option>
+                                    <option value="true">Только выбираемые</option>
+                                    <option value="false">Только невыбираемые</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button class="btn-secondary" id="btnClearFiltersModules"
+                            style="margin-top: 0.75rem; padding: 0.5rem 1rem; font-size: 0.85rem;">Очистить
+                            фильтры</button>
+                    </div>
+
+                    <!-- Sort Panel -->
+                    <div id="sortPanelModules" class="filter-sort-panel hidden" style="margin-bottom: 1rem;">
+                        <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                            <div class="input-group" style="flex: 1; min-width: 200px;">
+                                <label for="sortFieldModules" style="font-size: 0.8rem;">Сортировать по</label>
+                                <select id="sortFieldModules" style="margin-top: 0;">
+                                    <option value="moduleName">Название модуля</option>
+                                    <option value="displayLabel">Отображаемое имя</option>
+                                    <option value="parentModule">Родительский модуль</option>
+                                </select>
+                            </div>
+                            <div class="input-group" style="flex: 1; min-width: 150px;">
+                                <label for="sortDirectionModules" style="font-size: 0.8rem;">Направление</label>
+                                <select id="sortDirectionModules" style="margin-top: 0;">
+                                    <option value="asc">По возрастанию</option>
+                                    <option value="desc">По убыванию</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="table-container">
                         <table class="data-table">
                             <thead>
@@ -429,8 +598,73 @@
                         style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                         <p style="color: var(--text-muted); font-size: 0.9rem;">Все зарегистрированные сотрудники
                             (Только для администраторов).</p>
-                        <button class="btn-sm" id="addEmployeeDbBtn">+ Добавить сотрудника</button>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <button class="btn-sm" id="btnFilterEmployees"
+                                style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; box-shadow: none;">🔍
+                                Фильтр</button>
+                            <button class="btn-sm" id="btnSortEmployees"
+                                style="background: rgba(139, 92, 246, 0.15); color: #c4b5fd; box-shadow: none;">⇅
+                                Сортировка</button>
+                            <button class="btn-sm" id="addEmployeeDbBtn">+ Добавить сотрудника</button>
+                        </div>
                     </div>
+
+                    <!-- Filter Panel -->
+                    <div id="filterPanelEmployees" class="filter-sort-panel hidden" style="margin-bottom: 1rem;">
+                        <div
+                            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                            <div class="input-group">
+                                <label for="filterEmpLogin" style="font-size: 0.8rem;">Логин</label>
+                                <input type="text" id="filterEmpLogin" placeholder="Поиск..." class="filter-input filter-input-employees"
+                                    style="margin-top: 0;">
+                            </div>
+                            <div class="input-group">
+                                <label for="filterEmpRole" style="font-size: 0.8rem;">Роль</label>
+                                <select id="filterEmpRole" class="filter-input" style="margin-top: 0;">
+                                    <option value="">Все</option>
+                                    <option value="admin">Administrator</option>
+                                    <option value="senior_manager">Senior Manager</option>
+                                    <option value="junior_manager">Junior Manager</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label for="filterEmpLastName" style="font-size: 0.8rem;">Фамилия</label>
+                                <input type="text" id="filterEmpLastName" placeholder="Поиск..." class="filter-input filter-input-employees"
+                                    style="margin-top: 0;">
+                            </div>
+                            <div class="input-group">
+                                <label for="filterEmpFirstName" style="font-size: 0.8rem;">Имя</label>
+                                <input type="text" id="filterEmpFirstName" placeholder="Поиск..." class="filter-input filter-input-employees"
+                                    style="margin-top: 0;">
+                            </div>
+                        </div>
+                        <button class="btn-secondary" id="btnClearFiltersEmployees"
+                            style="margin-top: 0.75rem; padding: 0.5rem 1rem; font-size: 0.85rem;">Очистить
+                            фильтры</button>
+                    </div>
+
+                    <!-- Sort Panel -->
+                    <div id="sortPanelEmployees" class="filter-sort-panel hidden" style="margin-bottom: 1rem;">
+                        <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                            <div class="input-group" style="flex: 1; min-width: 200px;">
+                                <label for="sortFieldEmployees" style="font-size: 0.8rem;">Сортировать по</label>
+                                <select id="sortFieldEmployees" style="margin-top: 0;">
+                                    <option value="login">Логин</option>
+                                    <option value="role">Роль</option>
+                                    <option value="lastName">Фамилия</option>
+                                    <option value="firstName">Имя</option>
+                                </select>
+                            </div>
+                            <div class="input-group" style="flex: 1; min-width: 150px;">
+                                <label for="sortDirectionEmployees" style="font-size: 0.8rem;">Направление</label>
+                                <select id="sortDirectionEmployees" style="margin-top: 0;">
+                                    <option value="asc">По возрастанию</option>
+                                    <option value="desc">По убыванию</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="table-container">
                         <table class="data-table">
                             <thead>

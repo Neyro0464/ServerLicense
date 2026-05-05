@@ -266,6 +266,14 @@ document.addEventListener('DOMContentLoaded', () => {
     let allLicensesData = [];
     let currentSort = { key: 'generatedAt', dir: 'desc' };
 
+    // ════════════════════════════════════════════════════════════════════════════
+    //  SORT & FILTER STATE FOR OTHER TABLES
+    // ════════════════════════════════════════════════════════════════════════════
+    let companiesSort = { key: 'companyName', dir: 'asc' };
+    let employeesSort = { key: 'login', dir: 'asc' };
+    let configurationsSort = { key: 'configName', dir: 'asc' };
+    let modulesSort = { key: 'moduleName', dir: 'asc' };
+
     function renderLicenses() {
         const tbody = document.getElementById('licensesTableBody');
 
@@ -486,68 +494,91 @@ document.addEventListener('DOMContentLoaded', () => {
     // ════════════════════════════════════════════════════════════════════════════
     //  COMPANIES
     // ════════════════════════════════════════════════════════════════════════════
+    let allCompaniesData = [];
+
+    function renderCompanies() {
+        const tbody = document.getElementById('companiesTableBody');
+        tbody.innerHTML = '';
+
+        const fCompanyName = document.getElementById('filterCompanyName')?.value.toLowerCase() || '';
+        const fCity = document.getElementById('filterCity')?.value.toLowerCase() || '';
+        const fNote = document.getElementById('filterCompanyNote')?.value.toLowerCase() || '';
+
+        let filtered = allCompaniesData.filter(c => {
+            if (fCompanyName && (!c.companyName || !c.companyName.toLowerCase().includes(fCompanyName))) return false;
+            if (fCity && (!c.city || !c.city.toLowerCase().includes(fCity))) return false;
+            if (fNote && (!c.note || !c.note.toLowerCase().includes(fNote))) return false;
+            return true;
+        });
+
+        filtered.sort((a, b) => {
+            let valA = a[companiesSort.key] || '';
+            let valB = b[companiesSort.key] || '';
+            if (valA < valB) return companiesSort.dir === 'asc' ? -1 : 1;
+            if (valA > valB) return companiesSort.dir === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-muted);">Компании не найдены.</td></tr>';
+            return;
+        }
+
+        filtered.forEach(c => {
+            const tr = document.createElement('tr');
+            companyStore.set(c.companyName, c);
+
+            let contacts = '';
+            try {
+                const parsed = typeof c.contacts === 'string' ? JSON.parse(c.contacts) : c.contacts;
+                if (Array.isArray(parsed)) {
+                    contacts = parsed.filter(e => e.type || e.value)
+                        .map(e => `<span style="color:var(--text-muted);font-size:0.8rem;">${esc(e.type)}:</span> ${esc(e.value)}`).join('<br>');
+                } else if (parsed && typeof parsed === 'object') {
+                    contacts = Object.entries(parsed).map(([k, v]) => `<span style="color:var(--text-muted);font-size:0.8rem;">${esc(k)}:</span> ${esc(v)}`).join('<br>');
+                }
+            } catch { contacts = esc(c.contacts || ''); }
+
+            const actionsHtml = hasPermission('edit_company') || hasPermission('delete_company')
+                ? `<td><div style="display:flex;gap:0.5rem;">
+                    <button class="action-btn action-btn--edit" data-action="edit-company" data-key="${esc(c.companyName)}" ${hasPermission('edit_company') ? '' : 'disabled title="Требуются права Senior Manager или выше"'} title="Редактировать">✏️</button>
+                    <button class="action-btn action-btn--delete" data-action="delete-company" data-key="${esc(c.companyName)}" ${hasPermission('delete_company') ? '' : 'disabled title="Требуются права Senior Manager или выше"'} title="Удалить">🗑️</button>
+                </div></td>`
+                : '<td class="db-col--manager-only hidden"></td>';
+
+            const dateStr = c.dateAdded || '';
+            const dateWithTz = dateStr ? `${dateStr} UTC` : '—';
+
+            tr.innerHTML = `
+                <td style="font-weight:600;color:#fff;max-width:200px;word-wrap:break-word;white-space:normal;line-height:1.3;">${esc(c.companyName)}</td>
+                <td style="color:var(--text-muted);">${esc(c.city || '—')}</td>
+                <td>${contacts || '<span style="color:var(--text-muted)">—</span>'}</td>
+                <td style="color:var(--text-muted);font-size:0.85rem;max-width:150px;word-wrap:break-word;white-space:normal;line-height:1.3;">${esc(dateWithTz)}</td>
+                <td><div class="note-cell" style="color:var(--text-muted);font-size:0.8rem;" data-company-note="${esc(c.companyName)}">${esc(c.note || '—')}</div></td>
+                ${actionsHtml}
+            `;
+            tbody.appendChild(tr);
+        });
+
+        document.querySelectorAll('[data-company-note]').forEach(cell => {
+            cell.addEventListener('click', (e) => {
+                e.target.classList.toggle('expanded');
+            });
+        });
+
+        setTimeout(() => makeColumnsResizable('#tabContentCompanies .data-table'), 0);
+    }
+
     async function loadCompanies() {
         const tbody = document.getElementById('companiesTableBody');
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;"><div class="loader inline-loader" style="margin:0 auto;border-top-color:var(--primary);"></div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;"><div class="loader inline-loader" style="margin:0 auto;border-top-color:var(--primary);"></div></td></tr>';
 
         try {
             const res = await fetch('/api/companies');
             if (!res.ok) throw new Error('Не удалось загрузить список компаний.');
-            const data = await res.json();
+            allCompaniesData = await res.json();
             companiesLoaded = true;
-            tbody.innerHTML = '';
-
-            if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--text-muted);">Компании не найдены.</td></tr>';
-                return;
-            }
-
-            data.forEach(c => {
-                const tr = document.createElement('tr');
-                companyStore.set(c.companyName, c); // store for later lookup
-
-                let contacts = '';
-                try {
-                    const parsed = typeof c.contacts === 'string' ? JSON.parse(c.contacts) : c.contacts;
-                    if (Array.isArray(parsed)) {
-                        contacts = parsed.filter(e => e.type || e.value)
-                            .map(e => `<span style="color:var(--text-muted);font-size:0.8rem;">${esc(e.type)}:</span> ${esc(e.value)}`).join('<br>');
-                    } else if (parsed && typeof parsed === 'object') {
-                        contacts = Object.entries(parsed).map(([k, v]) => `<span style="color:var(--text-muted);font-size:0.8rem;">${esc(k)}:</span> ${esc(v)}`).join('<br>');
-                    }
-                } catch { contacts = esc(c.contacts || ''); }
-
-                const actionsHtml = hasPermission('edit_company') || hasPermission('delete_company')
-                    ? `<td><div style="display:flex;gap:0.5rem;">
-                        <button class="action-btn action-btn--edit" data-action="edit-company" data-key="${esc(c.companyName)}" ${hasPermission('edit_company') ? '' : 'disabled title="Требуются права Senior Manager или выше"'}>✏️ Редактировать</button>
-                        <button class="action-btn action-btn--delete" data-action="delete-company" data-key="${esc(c.companyName)}" ${hasPermission('delete_company') ? '' : 'disabled title="Требуются права Senior Manager или выше"'}>🗑️ Удалить</button>
-                    </div></td>`
-                    : '<td class="db-col--manager-only hidden"></td>';
-
-                // Format date with timezone
-                const dateStr = c.dateAdded || '';
-                const dateWithTz = dateStr ? `${dateStr} UTC` : '—';
-
-                tr.innerHTML = `
-                    <td style="font-weight:600;color:#fff;max-width:200px;word-wrap:break-word;white-space:normal;line-height:1.3;">${esc(c.companyName)}</td>
-                    <td style="color:var(--text-muted);">${esc(c.city || '—')}</td>
-                    <td>${contacts || '<span style="color:var(--text-muted)">—</span>'}</td>
-                    <td style="color:var(--text-muted);font-size:0.85rem;max-width:150px;word-wrap:break-word;white-space:normal;line-height:1.3;">${esc(dateWithTz)}</td>
-                    <td><div class="note-cell" style="color:var(--text-muted);font-size:0.8rem;" data-company-note="${esc(c.companyName)}">${esc(c.note || '—')}</div></td>
-                    ${actionsHtml}
-                `;
-                tbody.appendChild(tr);
-            });
-
-            // Add click handlers for expandable note cells
-            document.querySelectorAll('[data-company-note]').forEach(cell => {
-                cell.addEventListener('click', (e) => {
-                    e.target.classList.toggle('expanded');
-                });
-            });
-
-            // Enable column resizing
-            setTimeout(() => makeColumnsResizable('#tabContentCompanies .data-table'), 0);
+            renderCompanies();
 
             // Event delegation for company actions
             tbody.addEventListener('click', (e) => {
@@ -578,13 +609,58 @@ document.addEventListener('DOMContentLoaded', () => {
                         } catch (e2) { showError(e2.message); }
                     });
                 }
-            }, /* persistent listener */); // no { once: true } — must work for all rows
+            }, /* persistent listener */);
 
         } catch (err) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--error);">Ошибка при загрузке компаний.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--error);">Ошибка при загрузке компаний.</td></tr>';
             showError(err.message);
         }
     }
+
+    // Companies filter and sort controls
+    const btnFilterCompanies = document.getElementById('btnFilterCompanies');
+    const btnSortCompanies = document.getElementById('btnSortCompanies');
+    const filterPanelCompanies = document.getElementById('filterPanelCompanies');
+    const sortPanelCompanies = document.getElementById('sortPanelCompanies');
+
+    if (btnFilterCompanies) {
+        btnFilterCompanies.addEventListener('click', () => {
+            filterPanelCompanies.classList.toggle('hidden');
+            if (!sortPanelCompanies.classList.contains('hidden')) {
+                sortPanelCompanies.classList.add('hidden');
+            }
+        });
+    }
+
+    if (btnSortCompanies) {
+        btnSortCompanies.addEventListener('click', () => {
+            sortPanelCompanies.classList.toggle('hidden');
+            if (!filterPanelCompanies.classList.contains('hidden')) {
+                filterPanelCompanies.classList.add('hidden');
+            }
+        });
+    }
+
+    document.getElementById('btnClearFiltersCompanies')?.addEventListener('click', () => {
+        document.getElementById('filterCompanyName').value = '';
+        document.getElementById('filterCity').value = '';
+        document.getElementById('filterCompanyNote').value = '';
+        renderCompanies();
+    });
+
+    document.getElementById('sortFieldCompanies')?.addEventListener('change', (e) => {
+        companiesSort.key = e.target.value;
+        renderCompanies();
+    });
+
+    document.getElementById('sortDirectionCompanies')?.addEventListener('change', (e) => {
+        companiesSort.dir = e.target.value;
+        renderCompanies();
+    });
+
+    document.querySelectorAll('.filter-input-companies').forEach(input => {
+        input.addEventListener('input', renderCompanies);
+    });
 
     // Edit company form
     const editCompanyModal = document.getElementById('editCompanyModal');
@@ -668,6 +744,68 @@ document.addEventListener('DOMContentLoaded', () => {
     // ════════════════════════════════════════════════════════════════════════════
     //  EMPLOYEES
     // ════════════════════════════════════════════════════════════════════════════
+    let allEmployeesData = [];
+
+    function renderEmployees() {
+        const tbody = document.getElementById('employeesTableBody');
+        tbody.innerHTML = '';
+
+        const fLogin = document.getElementById('filterEmpLogin')?.value.toLowerCase() || '';
+        const fRole = document.getElementById('filterEmpRole')?.value || '';
+        const fLastName = document.getElementById('filterEmpLastName')?.value.toLowerCase() || '';
+        const fFirstName = document.getElementById('filterEmpFirstName')?.value.toLowerCase() || '';
+
+        let filtered = allEmployeesData.filter(emp => {
+            if (fLogin && (!emp.login || !emp.login.toLowerCase().includes(fLogin))) return false;
+            if (fRole && emp.role !== fRole) return false;
+            if (fLastName && (!emp.lastName || !emp.lastName.toLowerCase().includes(fLastName))) return false;
+            if (fFirstName && (!emp.firstName || !emp.firstName.toLowerCase().includes(fFirstName))) return false;
+            return true;
+        });
+
+        filtered.sort((a, b) => {
+            let valA = a[employeesSort.key] || '';
+            let valB = b[employeesSort.key] || '';
+
+            // Special sorting for role by hierarchy
+            if (employeesSort.key === 'role') {
+                const roleOrder = { 'admin': 0, 'senior_manager': 1, 'junior_manager': 2 };
+                valA = roleOrder[a.role] ?? 999;
+                valB = roleOrder[b.role] ?? 999;
+            }
+
+            if (valA < valB) return employeesSort.dir === 'asc' ? -1 : 1;
+            if (valA > valB) return employeesSort.dir === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text-muted);">Сотрудники не найдены.</td></tr>';
+            return;
+        }
+
+        filtered.forEach((emp, index) => {
+            const tr = document.createElement('tr');
+            employeeStore.set(emp.employeeId, emp);
+
+            tr.innerHTML = `
+                <td style="font-family:monospace;color:#c4b5fd;">${index + 1}</td>
+                <td style="font-weight:500;">${esc(emp.login)}</td>
+                <td>${roleBadge(emp.role)}</td>
+                <td>${esc(emp.lastName)}</td>
+                <td>${esc(emp.firstName)}</td>
+                <td style="color:var(--text-muted);">${esc(emp.middleName || '—')}</td>
+                <td><div style="display:flex;gap:0.5rem;">
+                    <button class="action-btn action-btn--edit" data-action="edit-employee" data-key="${esc(emp.employeeId)}" title="Редактировать">✏️</button>
+                    <button class="action-btn action-btn--delete" data-action="delete-employee" data-key="${esc(emp.employeeId)}" data-login="${esc(emp.login)}" title="Удалить">🗑️</button>
+                </div></td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        setTimeout(() => makeColumnsResizable('#tabContentEmployees .data-table'), 0);
+    }
+
     async function loadEmployees() {
         const tbody = document.getElementById('employeesTableBody');
         tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;"><div class="loader inline-loader" style="margin:0 auto;border-top-color:var(--primary);"></div></td></tr>';
@@ -678,33 +816,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (res.status === 403) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--error);">Доступ запрещён.</td></tr>'; return; }
                 throw new Error('Не удалось загрузить список сотрудников.');
             }
-            const data = await res.json();
+            allEmployeesData = await res.json();
             employeesLoaded = true;
-            tbody.innerHTML = '';
-
-            if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text-muted);">Сотрудники не найдены.</td></tr>';
-                return;
-            }
-
-            data.forEach((emp, index) => {
-                const tr = document.createElement('tr');
-                employeeStore.set(emp.employeeId, emp); // store for later lookup
-
-                tr.innerHTML = `
-                    <td style="font-family:monospace;color:#c4b5fd;">${index + 1}</td>
-                    <td style="font-weight:500;">${esc(emp.login)}</td>
-                    <td>${roleBadge(emp.role)}</td>
-                    <td>${esc(emp.lastName)}</td>
-                    <td>${esc(emp.firstName)}</td>
-                    <td style="color:var(--text-muted);">${esc(emp.middleName || '—')}</td>
-                    <td><div style="display:flex;gap:0.5rem;">
-                        <button class="action-btn action-btn--edit" data-action="edit-employee" data-key="${esc(emp.employeeId)}">✏️ Редактировать</button>
-                        <button class="action-btn action-btn--delete" data-action="delete-employee" data-key="${esc(emp.employeeId)}" data-login="${esc(emp.login)}">🗑️ Удалить</button>
-                    </div></td>
-                `;
-                tbody.appendChild(tr);
-            });
+            renderEmployees();
 
             // Event delegation for employee actions
             tbody.addEventListener('click', (e) => {
@@ -739,16 +853,59 @@ document.addEventListener('DOMContentLoaded', () => {
                         } catch (e2) { showError(e2.message); }
                     });
                 }
-            }, /* persistent listener */); // no { once: true } — must work for all rows
-
-            // Enable column resizing
-            setTimeout(() => makeColumnsResizable('#tabContentEmployees .data-table'), 0);
+            }, /* persistent listener */);
 
         } catch (err) {
             tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--error);">Ошибка при загрузке сотрудников.</td></tr>';
             showError(err.message);
         }
     }
+
+    // Employees filter and sort controls
+    const btnFilterEmployees = document.getElementById('btnFilterEmployees');
+    const btnSortEmployees = document.getElementById('btnSortEmployees');
+    const filterPanelEmployees = document.getElementById('filterPanelEmployees');
+    const sortPanelEmployees = document.getElementById('sortPanelEmployees');
+
+    if (btnFilterEmployees) {
+        btnFilterEmployees.addEventListener('click', () => {
+            filterPanelEmployees.classList.toggle('hidden');
+            if (!sortPanelEmployees.classList.contains('hidden')) {
+                sortPanelEmployees.classList.add('hidden');
+            }
+        });
+    }
+
+    if (btnSortEmployees) {
+        btnSortEmployees.addEventListener('click', () => {
+            sortPanelEmployees.classList.toggle('hidden');
+            if (!filterPanelEmployees.classList.contains('hidden')) {
+                filterPanelEmployees.classList.add('hidden');
+            }
+        });
+    }
+
+    document.getElementById('btnClearFiltersEmployees')?.addEventListener('click', () => {
+        document.getElementById('filterEmpLogin').value = '';
+        document.getElementById('filterEmpRole').value = '';
+        document.getElementById('filterEmpLastName').value = '';
+        document.getElementById('filterEmpFirstName').value = '';
+        renderEmployees();
+    });
+
+    document.getElementById('sortFieldEmployees')?.addEventListener('change', (e) => {
+        employeesSort.key = e.target.value;
+        renderEmployees();
+    });
+
+    document.getElementById('sortDirectionEmployees')?.addEventListener('change', (e) => {
+        employeesSort.dir = e.target.value;
+        renderEmployees();
+    });
+
+    document.querySelectorAll('.filter-input-employees').forEach(input => {
+        input.addEventListener('input', () => renderEmployees());
+    });
 
     // Edit/Add employee modal
     const editEmployeeModal = document.getElementById('editEmployeeModal');
@@ -815,6 +972,157 @@ document.addEventListener('DOMContentLoaded', () => {
     //  CONFIGURATIONS
     // ════════════════════════════════════════════════════════════════════════════
     const configStore = new Map();
+    let allConfigurationsData = [];
+
+    function renderConfigurations() {
+        const tbody = document.getElementById('configurationsTableBody');
+        tbody.innerHTML = '';
+
+        const fConfigName = document.getElementById('filterConfigName')?.value.toLowerCase() || '';
+        const fConfigDesc = document.getElementById('filterConfigDesc')?.value.toLowerCase() || '';
+
+        let filtered = allConfigurationsData.filter(cfg => {
+            if (fConfigName && (!cfg.configName || !cfg.configName.toLowerCase().includes(fConfigName))) return false;
+            if (fConfigDesc && (!cfg.description || !cfg.description.toLowerCase().includes(fConfigDesc))) return false;
+            return true;
+        });
+
+        filtered.sort((a, b) => {
+            let valA, valB;
+
+            if (configurationsSort.key === 'moduleCount') {
+                valA = (a.modules || []).length;
+                valB = (b.modules || []).length;
+            } else {
+                valA = a[configurationsSort.key] || '';
+                valB = b[configurationsSort.key] || '';
+            }
+
+            if (valA < valB) return configurationsSort.dir === 'asc' ? -1 : 1;
+            if (valA > valB) return configurationsSort.dir === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--text-muted);">Конфигурации не найдены.</td></tr>';
+            return;
+        }
+
+        filtered.forEach((cfg, idx) => {
+            configStore.set(String(cfg.configId), cfg);
+            const tr = document.createElement('tr');
+            const modulesBadges = cfg.modules && cfg.modules.length
+                ? cfg.modules.map(m => `<span class="status-badge">${esc(m)}</span>`).join('')
+                : '<span style="color:var(--text-muted)">—</span>';
+
+            tr.innerHTML = `
+                <td style="font-weight:500;color:#c4b5fd;">${idx + 1}</td>
+                <td style="font-weight:600;color:#fff;">${esc(cfg.configName)}</td>
+                <td style="color:var(--text-muted);">${esc(cfg.description || '—')}</td>
+                <td><div class="config-modules-cell">${modulesBadges}</div></td>
+                <td><div style="display:flex;gap:0.5rem;">
+                    <button class="action-btn action-btn--edit" data-action="edit-config" data-key="${cfg.configId}" title="Редактировать">✏️</button>
+                    <button class="action-btn action-btn--delete" data-action="delete-config" data-key="${cfg.configId}" data-name="${esc(cfg.configName)}" title="Удалить">🗑️</button>
+                </div></td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        setTimeout(() => makeColumnsResizable('#tabContentConfigurations .data-table'), 0);
+    }
+
+    async function loadConfigurations() {
+        const tbody = document.getElementById('configurationsTableBody');
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;"><div class="loader inline-loader" style="margin:0 auto;border-top-color:var(--primary);"></div></td></tr>';
+
+        try {
+            await fetchAllModules();
+            const res = await fetch('/api/configurations');
+            if (!res.ok) throw new Error('Не удалось загрузить конфигурации.');
+            allConfigurationsData = await res.json();
+            configurationsLoaded = true;
+            configStore.clear();
+            renderConfigurations();
+
+            tbody.addEventListener('click', (e) => {
+                const btn = e.target.closest('[data-action]');
+                if (!btn) return;
+                const key = btn.dataset.key;
+                const action = btn.dataset.action;
+
+                if (action === 'edit-config') {
+                    const cfg = configStore.get(key);
+                    if (!cfg) return;
+                    document.getElementById('editConfigId').value = cfg.configId;
+                    document.getElementById('editConfigName').value = cfg.configName;
+                    document.getElementById('editConfigDesc').value = cfg.description || '';
+                    renderModuleCheckboxes('editConfigModuleList', cfg.modules || []);
+                    hideFormError('editConfigError');
+                    document.getElementById('editConfigModal').classList.remove('hidden');
+                }
+
+                if (action === 'delete-config') {
+                    const name = btn.dataset.name;
+                    showConfirmDelete(`Удалить конфигурацию "${name}"?`, async () => {
+                        try {
+                            const r = await fetch(`/api/configurations/${key}`, { method: 'DELETE' });
+                            if (!r.ok) throw new Error(await safeDeleteError(r, 'Не удалось удалить конфигурацию.'));
+                            configurationsLoaded = false;
+                            loadConfigurations();
+                        } catch (e2) { showError(e2.message); }
+                    });
+                }
+            });
+
+        } catch (err) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--error);">Ошибка при загрузке конфигураций.</td></tr>';
+            showError(err.message);
+        }
+    }
+
+    // Configurations filter and sort controls
+    const btnFilterConfigurations = document.getElementById('btnFilterConfigurations');
+    const btnSortConfigurations = document.getElementById('btnSortConfigurations');
+    const filterPanelConfigurations = document.getElementById('filterPanelConfigurations');
+    const sortPanelConfigurations = document.getElementById('sortPanelConfigurations');
+
+    if (btnFilterConfigurations) {
+        btnFilterConfigurations.addEventListener('click', () => {
+            filterPanelConfigurations.classList.toggle('hidden');
+            if (!sortPanelConfigurations.classList.contains('hidden')) {
+                sortPanelConfigurations.classList.add('hidden');
+            }
+        });
+    }
+
+    if (btnSortConfigurations) {
+        btnSortConfigurations.addEventListener('click', () => {
+            sortPanelConfigurations.classList.toggle('hidden');
+            if (!filterPanelConfigurations.classList.contains('hidden')) {
+                filterPanelConfigurations.classList.add('hidden');
+            }
+        });
+    }
+
+    document.getElementById('btnClearFiltersConfigurations')?.addEventListener('click', () => {
+        document.getElementById('filterConfigName').value = '';
+        document.getElementById('filterConfigDesc').value = '';
+        renderConfigurations();
+    });
+
+    document.getElementById('sortFieldConfigurations')?.addEventListener('change', (e) => {
+        configurationsSort.key = e.target.value;
+        renderConfigurations();
+    });
+
+    document.getElementById('sortDirectionConfigurations')?.addEventListener('change', (e) => {
+        configurationsSort.dir = e.target.value;
+        renderConfigurations();
+    });
+
+    document.querySelectorAll('.filter-input-configurations').forEach(input => {
+        input.addEventListener('input', () => renderConfigurations());
+    });
 
     async function fetchAllModules() {
         if (allModulesCache.length) return allModulesCache;
@@ -897,83 +1205,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const container = document.getElementById(containerId);
         if (!container) return [];
         return [...container.querySelectorAll('input[type=checkbox]:checked')].map(cb => cb.value);
-    }
-
-    async function loadConfigurations() {
-        const tbody = document.getElementById('configurationsTableBody');
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;"><div class="loader inline-loader" style="margin:0 auto;border-top-color:var(--primary);"></div></td></tr>';
-
-        try {
-            await fetchAllModules();
-            const res = await fetch('/api/configurations');
-            if (!res.ok) throw new Error('Не удалось загрузить конфигурации.');
-            const data = await res.json();
-            configurationsLoaded = true;
-            configStore.clear();
-            tbody.innerHTML = '';
-
-            if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--text-muted);">Конфигурации не найдены.</td></tr>';
-                return;
-            }
-
-            data.forEach((cfg, idx) => {
-                configStore.set(String(cfg.configId), cfg);
-                const tr = document.createElement('tr');
-                const modulesBadges = cfg.modules && cfg.modules.length
-                    ? cfg.modules.map(m => `<span class="status-badge">${esc(m)}</span>`).join('')
-                    : '<span style="color:var(--text-muted)">—</span>';
-
-                tr.innerHTML = `
-                    <td style="font-weight:500;color:#c4b5fd;">${idx + 1}</td>
-                    <td style="font-weight:600;color:#fff;">${esc(cfg.configName)}</td>
-                    <td style="color:var(--text-muted);">${esc(cfg.description || '—')}</td>
-                    <td><div class="config-modules-cell">${modulesBadges}</div></td>
-                    <td><div style="display:flex;gap:0.5rem;">
-                        <button class="action-btn action-btn--edit" data-action="edit-config" data-key="${cfg.configId}">✏️ Редактировать</button>
-                        <button class="action-btn action-btn--delete" data-action="delete-config" data-key="${cfg.configId}" data-name="${esc(cfg.configName)}">🗑️ Удалить</button>
-                    </div></td>
-                `;
-                tbody.appendChild(tr);
-            });
-
-            tbody.addEventListener('click', (e) => {
-                const btn = e.target.closest('[data-action]');
-                if (!btn) return;
-                const key = btn.dataset.key;
-                const action = btn.dataset.action;
-
-                if (action === 'edit-config') {
-                    const cfg = configStore.get(key);
-                    if (!cfg) return;
-                    document.getElementById('editConfigId').value = cfg.configId;
-                    document.getElementById('editConfigName').value = cfg.configName;
-                    document.getElementById('editConfigDesc').value = cfg.description || '';
-                    renderModuleCheckboxes('editConfigModuleList', cfg.modules || []);
-                    hideFormError('editConfigError');
-                    document.getElementById('editConfigModal').classList.remove('hidden');
-                }
-
-                if (action === 'delete-config') {
-                    const name = btn.dataset.name;
-                    showConfirmDelete(`Удалить конфигурацию "${name}"?`, async () => {
-                        try {
-                            const r = await fetch(`/api/configurations/${key}`, { method: 'DELETE' });
-                            if (!r.ok) throw new Error(await safeDeleteError(r, 'Не удалось удалить конфигурацию.'));
-                            configurationsLoaded = false;
-                            loadConfigurations();
-                        } catch (e2) { showError(e2.message); }
-                    });
-                }
-            });
-
-            // Enable column resizing
-            setTimeout(() => makeColumnsResizable('#tabContentConfigurations .data-table'), 0);
-
-        } catch (err) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--error);">Ошибка при загрузке конфигураций.</td></tr>';
-            showError(err.message);
-        }
     }
 
     // Add configuration modal
@@ -1063,61 +1294,102 @@ document.addEventListener('DOMContentLoaded', () => {
     const moduleStore = new Map();
     let allModulesData = [];
 
+    function renderModules() {
+        const tbody = document.getElementById('modulesTableBody');
+        tbody.innerHTML = '';
+
+        const fModuleName = document.getElementById('filterModuleName')?.value.toLowerCase() || '';
+        const fDisplayLabel = document.getElementById('filterDisplayLabel')?.value.toLowerCase() || '';
+        const fParentModule = document.getElementById('filterParentModule')?.value || '';
+        const fSelectable = document.getElementById('filterSelectable')?.value || '';
+
+        let filtered = allModulesData.filter(mod => {
+            if (fModuleName && (!mod.moduleName || !mod.moduleName.toLowerCase().includes(fModuleName))) return false;
+            if (fDisplayLabel && (!mod.displayLabel || !mod.displayLabel.toLowerCase().includes(fDisplayLabel))) return false;
+            if (fParentModule === 'root' && mod.parentModule) return false;
+            if (fParentModule && fParentModule !== 'root' && mod.parentModule !== fParentModule) return false;
+            if (fSelectable === 'true' && !mod.isSelectable) return false;
+            if (fSelectable === 'false' && mod.isSelectable) return false;
+            return true;
+        });
+
+        filtered.sort((a, b) => {
+            let valA = a[modulesSort.key] || '';
+            let valB = b[modulesSort.key] || '';
+            if (valA < valB) return modulesSort.dir === 'asc' ? -1 : 1;
+            if (valA > valB) return modulesSort.dir === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--text-muted);">Модули не найдены.</td></tr>';
+            return;
+        }
+
+        // Build tree structure for filtered modules
+        const rootModules = filtered.filter(m => !m.parentModule);
+        const childMap = new Map();
+        filtered.forEach(m => {
+            if (m.parentModule) {
+                if (!childMap.has(m.parentModule)) childMap.set(m.parentModule, []);
+                childMap.get(m.parentModule).push(m);
+            }
+            moduleStore.set(m.moduleName, m);
+        });
+
+        function renderModule(mod, level = 0) {
+            const tr = document.createElement('tr');
+            const indent = '&nbsp;'.repeat(level * 4);
+            const icon = level > 0 ? '└─ ' : '';
+
+            tr.innerHTML = `
+                <td style="font-family:monospace;color:#c4b5fd;">${indent}${icon}${esc(mod.moduleName)}</td>
+                <td>${esc(mod.displayLabel)}</td>
+                <td style="color:var(--text-muted);">${mod.parentModule ? esc(mod.parentModule) : '—'}</td>
+                <td style="text-align:center;">${mod.isSelectable ? '<span style="color:var(--success);">✓</span>' : '<span style="color:var(--text-muted);">✗</span>'}</td>
+                <td>
+                    <div style="display:flex;gap:0.5rem;">
+                        <button class="action-btn" onclick="window.__editModule('${mod.moduleName}')" style="background:var(--primary);color:#fff;" title="Редактировать">✏️</button>
+                        <button class="action-btn action-btn--delete" onclick="window.__deleteModule('${mod.moduleName}')" title="Удалить">🗑️</button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(tr);
+
+            // Render children
+            const children = childMap.get(mod.moduleName) || [];
+            children.sort((a, b) => a.sortOrder - b.sortOrder);
+            children.forEach(child => renderModule(child, level + 1));
+        }
+
+        rootModules.sort((a, b) => a.sortOrder - b.sortOrder);
+        rootModules.forEach(mod => renderModule(mod));
+    }
+
     async function loadModules() {
         const tbody = document.getElementById('modulesTableBody');
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;"><div class="loader inline-loader" style="margin:0 auto;border-top-color:var(--primary);"></div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;"><div class="loader inline-loader" style="margin:0 auto;border-top-color:var(--primary);"></div></td></tr>';
 
         try {
             const res = await fetch('/api/modules');
             if (!res.ok) throw new Error('Не удалось загрузить список модулей.');
-            const data = await res.json();
-            allModulesData = data;
+            allModulesData = await res.json();
             modulesLoaded = true;
-            tbody.innerHTML = '';
 
-            if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text-muted);">Модули не найдены.</td></tr>';
-                return;
+            // Populate parent module filter dropdown
+            const filterParentModule = document.getElementById('filterParentModule');
+            if (filterParentModule) {
+                const uniqueParents = [...new Set(allModulesData.map(m => m.parentModule).filter(p => p))];
+                filterParentModule.innerHTML = '<option value="">Все</option><option value="root">Только корневые</option>';
+                uniqueParents.forEach(parent => {
+                    const opt = document.createElement('option');
+                    opt.value = parent;
+                    opt.textContent = parent;
+                    filterParentModule.appendChild(opt);
+                });
             }
 
-            // Build tree structure
-            const rootModules = data.filter(m => !m.parentModule);
-            const childMap = new Map();
-            data.forEach(m => {
-                if (m.parentModule) {
-                    if (!childMap.has(m.parentModule)) childMap.set(m.parentModule, []);
-                    childMap.get(m.parentModule).push(m);
-                }
-                moduleStore.set(m.moduleName, m);
-            });
-
-            function renderModule(mod, level = 0) {
-                const tr = document.createElement('tr');
-                const indent = '&nbsp;'.repeat(level * 4);
-                const icon = level > 0 ? '└─ ' : '';
-
-                tr.innerHTML = `
-                    <td style="font-family:monospace;color:#c4b5fd;">${indent}${icon}${esc(mod.moduleName)}</td>
-                    <td>${esc(mod.displayLabel)}</td>
-                    <td style="color:var(--text-muted);">${mod.parentModule ? esc(mod.parentModule) : '—'}</td>
-                    <td style="text-align:center;">${mod.isSelectable ? '<span style="color:var(--success);">✓</span>' : '<span style="color:var(--text-muted);">✗</span>'}</td>
-                    <td>
-                        <div style="display:flex;gap:0.5rem;">
-                            <button class="action-btn" onclick="window.__editModule('${mod.moduleName}')" style="background:var(--primary);color:#fff;" title="Редактировать">✏️</button>
-                            <button class="action-btn action-btn--delete" onclick="window.__deleteModule('${mod.moduleName}')" title="Удалить">🗑️</button>
-                        </div>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-
-                // Render children
-                const children = childMap.get(mod.moduleName) || [];
-                children.sort((a, b) => a.sortOrder - b.sortOrder);
-                children.forEach(child => renderModule(child, level + 1));
-            }
-
-            rootModules.sort((a, b) => a.sortOrder - b.sortOrder);
-            rootModules.forEach(mod => renderModule(mod));
+            renderModules();
 
             // Global functions for actions
             window.__editModule = (name) => {
@@ -1163,10 +1435,59 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
         } catch (err) {
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--error);">Ошибка при загрузке модулей.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--error);">Ошибка при загрузке модулей.</td></tr>';
             showError(err.message);
         }
     }
+
+    // Modules filter and sort controls
+    const btnFilterModules = document.getElementById('btnFilterModules');
+    const btnSortModules = document.getElementById('btnSortModules');
+    const filterPanelModules = document.getElementById('filterPanelModules');
+    const sortPanelModules = document.getElementById('sortPanelModules');
+
+    if (btnFilterModules) {
+        btnFilterModules.addEventListener('click', () => {
+            filterPanelModules.classList.toggle('hidden');
+            if (!sortPanelModules.classList.contains('hidden')) {
+                sortPanelModules.classList.add('hidden');
+            }
+        });
+    }
+
+    if (btnSortModules) {
+        btnSortModules.addEventListener('click', () => {
+            sortPanelModules.classList.toggle('hidden');
+            if (!filterPanelModules.classList.contains('hidden')) {
+                filterPanelModules.classList.add('hidden');
+            }
+        });
+    }
+
+    document.getElementById('btnClearFiltersModules')?.addEventListener('click', () => {
+        document.getElementById('filterModuleName').value = '';
+        document.getElementById('filterDisplayLabel').value = '';
+        document.getElementById('filterParentModule').value = '';
+        document.getElementById('filterSelectable').value = '';
+        renderModules();
+    });
+
+    document.getElementById('sortFieldModules')?.addEventListener('change', (e) => {
+        modulesSort.key = e.target.value;
+        renderModules();
+    });
+
+    document.getElementById('sortDirectionModules')?.addEventListener('change', (e) => {
+        modulesSort.dir = e.target.value;
+        renderModules();
+    });
+
+    document.querySelectorAll('.filter-input-modules').forEach(input => {
+        input.addEventListener('input', () => renderModules());
+    });
+
+    document.getElementById('filterParentModule')?.addEventListener('change', () => renderModules());
+    document.getElementById('filterSelectable')?.addEventListener('change', () => renderModules());
 
     // Add module modal
     const addModuleModal = document.getElementById('addModuleModal');
